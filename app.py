@@ -6,6 +6,7 @@ import json
 import threading
 import time
 import uuid
+import re
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import subprocess
@@ -287,4 +288,5 @@ def history():
     return render_template('history.html')
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    import os
+    app.run(debug=False, host='0.0.0.0', port=os.environ.get('PORT', 5000))

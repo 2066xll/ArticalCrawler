@@ -1,0 +1,12 @@
+name = "article-crawler"
+type = "static"
+build_command = ""
+publish = "."
+
+[env.production]
+build_command = ""
+publish = "."
+
+[env.development]
+build_command = ""
+publish = "."
