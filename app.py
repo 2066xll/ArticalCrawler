@@ -88,8 +88,9 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         tasks[task_id]['status'] = 'completed'
         tasks[task_id]['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         tasks[task_id]['return_code'] = result.returncode
-        tasks[task_id]['stdout'] = result.stdout
-        tasks[task_id]['stderr'] = result.stderr
+        # 限制stdout和stderr的长度，防止JSON序列化问题
+        tasks[task_id]['stdout'] = result.stdout[:1000] if result.stdout else ''
+        tasks[task_id]['stderr'] = result.stderr[:1000] if result.stderr else ''
         tasks[task_id]['output_files'] = sorted_output_files
         tasks[task_id]['file_count'] = len(sorted_output_files)
         
@@ -104,8 +105,8 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
             'status': 'completed',
             'start_time': tasks[task_id]['start_time'],
             'end_time': tasks[task_id]['end_time'],
-            'file_count': len(output_files),
-            'output_files': output_files
+            'file_count': len(sorted_output_files),
+            'output_files': sorted_output_files
         }
         add_history(history_record)
         
