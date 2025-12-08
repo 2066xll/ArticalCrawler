@@ -41,7 +41,22 @@ function handleCrawlSubmit(e) {
         },
         body: JSON.stringify(formData)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP错误! 状态码: ${response.status}`);
+        }
+        return response.text(); // 先获取文本，再尝试解析JSON
+    })
+    .then(text => {
+        if (!text) {
+            throw new Error('空响应');
+        }
+        try {
+            return JSON.parse(text); // 显式解析JSON，捕获解析错误
+        } catch (e) {
+            throw new Error(`JSON解析错误: ${e.message}`);
+        }
+    })
     .then(data => {
         if (data.error) {
             statusMessage.className = 'alert alert-danger status-message';
@@ -71,7 +86,22 @@ function pollTaskStatus(taskId) {
     const resultContent = document.getElementById('result-content');
     
     fetch(`${API_BASE_URL}/task/${taskId}`)
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP错误! 状态码: ${response.status}`);
+        }
+        return response.text(); // 先获取文本，再尝试解析JSON
+    })
+    .then(text => {
+        if (!text) {
+            throw new Error('空响应');
+        }
+        try {
+            return JSON.parse(text); // 显式解析JSON，捕获解析错误
+        } catch (e) {
+            throw new Error(`JSON解析错误: ${e.message}`);
+        }
+    })
     .then(task => {
         if (task.error) {
             statusMessage.className = 'alert alert-danger status-message';
@@ -210,7 +240,22 @@ function loadHistory() {
     if (!historyContainer) return;
     
     fetch(`${API_BASE_URL}/history`)
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP错误! 状态码: ${response.status}`);
+        }
+        return response.text(); // 先获取文本，再尝试解析JSON
+    })
+    .then(text => {
+        if (!text) {
+            throw new Error('空响应');
+        }
+        try {
+            return JSON.parse(text); // 显式解析JSON，捕获解析错误
+        } catch (e) {
+            throw new Error(`JSON解析错误: ${e.message}`);
+        }
+    })
     .then(history => {
         if (history.length === 0) {
             historyContainer.innerHTML = '<div class="alert alert-info" role="alert">暂无历史记录</div>';
