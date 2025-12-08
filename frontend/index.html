@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章爬取工具</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="card shadow">
+            <div class="card-header">
+                <h1 class="text-center"><i class="bi bi-file-earmark-text me-2"></i>文章爬取工具</h1>
+            </div>
+            <div class="card-body">
+                <form id="crawl-form">
+                    <div class="form-group">
+                        <label for="url" class="form-label"><i class="bi bi-link me-2"></i>文章URL</label>
+                        <input type="url" class="form-control" id="url" name="url" placeholder="请输入要爬取的文章URL" required>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="format" class="form-label"><i class="bi bi-filetype-txt me-2"></i>输出格式</label>
+                                <select class="form-select" id="format" name="format">
+                                    <option value="txt">TXT格式</option>
+                                    <option value="md">Markdown格式</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="next_chapters" class="form-label"><i class="bi bi-arrow-right-circle me-2"></i>向后爬取章节数</label>
+                                <input type="number" class="form-control" id="next_chapters" name="next_chapters" min="0" value="0" placeholder="0表示不爬取下一章">
+                                <div class="form-text">0表示只爬取当前章节，1表示当前章节+下一章，以此类推</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="prev_chapters" class="form-label"><i class="bi bi-arrow-left-circle me-2"></i>向前爬取章节数</label>
+                                <input type="number" class="form-control" id="prev_chapters" name="prev_chapters" min="0" value="0" placeholder="0表示不爬取上一章">
+                                <div class="form-text">0表示不爬取上一章，1表示当前章节+上一章，以此类推</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex">
+                        <button type="submit" class="btn btn-primary btn-lg flex-grow-1">
+                            <i class="bi bi-play-circle-fill me-2"></i>开始爬取
+                        </button>
+                        <a href="history.html" class="btn btn-secondary btn-lg">
+                            <i class="bi bi-clock-history me-2"></i>查看历史记录
+                        </a>
+                    </div>
+                </form>
+                
+                <!-- 进度条 -->
+                <div class="progress" id="progress-bar">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+                </div>
+                
+                <!-- 状态消息 -->
+                <div class="alert status-message" id="status-message" role="alert"></div>
+                
+                <!-- 结果容器 -->
+                <div class="result-container" id="result-container">
+                    <h3><i class="bi bi-check-circle-fill me-2"></i>爬取结果</h3>
+                    <div id="result-content"></div>
+                    <a href="index.html" class="btn btn-primary mt-3">
+                        <i class="bi bi-house-door-fill me-2"></i>返回首页
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

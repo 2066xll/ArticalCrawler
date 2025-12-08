@@ -14,6 +14,10 @@ import subprocess
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
+# 配置静态文件目录
+app.static_folder = 'frontend'
+app.static_url_path = '/static'
+
 # 任务状态存储
 tasks = {}
 
@@ -128,7 +132,12 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
 # 首页路由
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return send_from_directory('frontend', 'index.html')
+
+# 历史记录页面路由
+@app.route('/history')
+def history():
+    return send_from_directory('frontend', 'history.html')
 
 # 提交爬取任务
 @app.route('/api/crawl', methods=['POST'])
@@ -214,9 +223,27 @@ def view_file(filename):
             'error': f'读取文件失败: {str(e)}'
         }), 500
 
-# 文章展示页面
+# 静态文件路由
+@app.route('/css/<path:filename>')
+def static_css(filename):
+    return send_from_directory('frontend/css', filename)
+
+@app.route('/js/<path:filename>')
+def static_js(filename):
+    return send_from_directory('frontend/js', filename)
+
+@app.route('/images/<path:filename>')
+def static_images(filename):
+    return send_from_directory('frontend/images', filename)
+
+# 文章展示页面 - 返回静态HTML
 @app.route('/article/<path:filename>')
 def article_view(filename):
+    return send_from_directory('frontend', 'article.html')
+
+# 获取文章内容的API
+@app.route('/api/article/<path:filename>', methods=['GET'])
+def get_article_content(filename):
     try:
         # 完整文件路径
         file_path = os.path.join(os.getcwd(), filename)
@@ -267,26 +294,21 @@ def article_view(filename):
         if current_index < len(sorted_files) - 1:
             next_article = os.path.join(file_dir, sorted_files[current_index + 1])
         
-        # 渲染文章展示页面
-        return render_template('article.html', 
-                            filename=file_name,
-                            content=content,
-                            file_type=file_type,
-                            prev_article=prev_article,
-                            next_article=next_article)
+        # 返回文章内容和导航信息
+        return jsonify({
+            'success': True,
+            'filename': file_name,
+            'content': content,
+            'file_type': file_type,
+            'prev_article': prev_article,
+            'next_article': next_article
+        })
     except Exception as e:
-        return render_template('article.html', 
-                            filename=os.path.basename(filename),
-                            content=None,
-                            file_type='txt',
-                            prev_article=None,
-                            next_article=None)
-
-# 历史记录页面
-@app.route('/history')
-def history():
-    return render_template('history.html')
+        return jsonify({
+            'success': False,
+            'error': f'读取文件失败: {str(e)}'
+        }), 500
 
 if __name__ == '__main__':
     import os
-    app.run(debug=False, host='0.0.0.0', port=os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=os.environ.get('PORT', 5001))

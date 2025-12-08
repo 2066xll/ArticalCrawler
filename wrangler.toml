@@ -1,12 +1,12 @@
 name = "article-crawler"
 type = "static"
 build_command = ""
-publish = "."
+publish = "frontend"
 
 [env.production]
 build_command = ""
-publish = "."
+publish = "frontend"
 
 [env.development]
 build_command = ""
-publish = "."
+publish = "frontend"
