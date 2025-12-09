@@ -68,19 +68,26 @@ function handleCrawlSubmit(e) {
     })
     .then(response => {
         clearInterval(progressInterval);
-        if (!response.ok) {
+        // 处理不同的HTTP状态码
+        if (response.status === 405) {
+            throw new Error('请求方法不允许，可能是API服务配置错误');
+        } else if (response.status === 404) {
+            throw new Error('API端点不存在，请检查API配置');
+        } else if (response.status === 500) {
+            throw new Error('服务器内部错误，请稍后重试');
+        } else if (!response.ok) {
             throw new Error(`HTTP错误! 状态码: ${response.status}`);
         }
         return response.text(); // 先获取文本，再尝试解析JSON
     })
     .then(text => {
         if (!text) {
-            throw new Error('空响应');
+            throw new Error('空响应，API可能未正确配置');
         }
         try {
             return JSON.parse(text); // 显式解析JSON，捕获解析错误
         } catch (e) {
-            throw new Error(`JSON解析错误: ${e.message}`);
+            throw new Error(`JSON解析错误: ${e.message}。响应内容: ${text}`);
         }
     })
     .then(data => {
@@ -116,19 +123,26 @@ function pollTaskStatus(taskId, progressBar, statusMessage, submitBtn) {
     
     fetch(`${API_BASE_URL}/task/${taskId}`)
     .then(response => {
-        if (!response.ok) {
+        // 处理不同的HTTP状态码
+        if (response.status === 405) {
+            throw new Error('请求方法不允许，可能是API服务配置错误');
+        } else if (response.status === 404) {
+            throw new Error('API端点不存在，请检查API配置');
+        } else if (response.status === 500) {
+            throw new Error('服务器内部错误，请稍后重试');
+        } else if (!response.ok) {
             throw new Error(`HTTP错误! 状态码: ${response.status}`);
         }
         return response.text(); // 先获取文本，再尝试解析JSON
     })
     .then(text => {
         if (!text) {
-            throw new Error('空响应');
+            throw new Error('空响应，API可能未正确配置');
         }
         try {
             return JSON.parse(text); // 显式解析JSON，捕获解析错误
         } catch (e) {
-            throw new Error(`JSON解析错误: ${e.message}`);
+            throw new Error(`JSON解析错误: ${e.message}。响应内容: ${text}`);
         }
     })
     .then(data => {
@@ -302,19 +316,26 @@ function loadHistory() {
     
     fetch(`${API_BASE_URL}/history`)
     .then(response => {
-        if (!response.ok) {
+        // 处理不同的HTTP状态码
+        if (response.status === 405) {
+            throw new Error('请求方法不允许，可能是API服务配置错误');
+        } else if (response.status === 404) {
+            throw new Error('API端点不存在，请检查API配置');
+        } else if (response.status === 500) {
+            throw new Error('服务器内部错误，请稍后重试');
+        } else if (!response.ok) {
             throw new Error(`HTTP错误! 状态码: ${response.status}`);
         }
         return response.text(); // 先获取文本，再尝试解析JSON
     })
     .then(text => {
         if (!text) {
-            throw new Error('空响应');
+            throw new Error('空响应，API可能未正确配置');
         }
         try {
             return JSON.parse(text); // 显式解析JSON，捕获解析错误
         } catch (e) {
-            throw new Error(`JSON解析错误: ${e.message}`);
+            throw new Error(`JSON解析错误: ${e.message}。响应内容: ${text}`);
         }
     })
     .then(data => {
@@ -355,7 +376,7 @@ function loadHistory() {
             }
             
             historyHtml += `
-                <div class="history-item">
+                <div class="history-item fade-in">
                     <div class="history-item-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5 class="history-item-title">${item.url}</h5>

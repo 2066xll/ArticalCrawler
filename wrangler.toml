@@ -1,6 +1,7 @@
 name = "article-crawler"
 type = "pages"
-build_command = "pip install -r requirements.txt && python app.py"
+build_command = "pip install -r requirements.txt"
+publish = "frontend"
 
 [build]
 command = "pip install -r requirements.txt"
@@ -8,7 +9,7 @@ publish = "frontend"
 
 [functions]
 # 配置Pages Functions支持
-# Pages Functions使用JavaScript，无法直接运行Python，但可以通过其他方式集成
+# Pages Functions使用JavaScript，无法直接运行Python，但可以通过Workers集成
 
 [env.production]
 build_command = "pip install -r requirements.txt"
@@ -17,3 +18,9 @@ publish = "frontend"
 [env.development]
 build_command = "pip install -r requirements.txt"
 publish = "frontend"
+
+# 配置CSP策略
+[headers]
+for = "/*"
+[headers.values]
+Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://api.example.com; font-src 'self' https://cdn.jsdelivr.net; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests; block-all-mixed-content;"
