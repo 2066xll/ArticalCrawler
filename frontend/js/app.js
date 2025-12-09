@@ -14,12 +14,24 @@ function handleCrawlSubmit(e) {
     e.preventDefault();
     
     // 获取表单数据
+    const urlInput = document.getElementById('url');
+    const formatSelect = document.getElementById('format');
+    const nextChaptersInput = document.getElementById('next_chapters');
+    const prevChaptersInput = document.getElementById('prev_chapters');
+    const submitBtn = document.querySelector('button[type="submit"]');
+    
+    // 添加表单验证
+    if (!urlInput.checkValidity()) {
+        urlInput.reportValidity();
+        return;
+    }
+    
     const formData = {
-        url: document.getElementById('url').value,
-        format: document.getElementById('format').value,
+        url: urlInput.value,
+        format: formatSelect.value,
         output_dir: './output', // 固定输出目录，由后端管理
-        next_chapters: parseInt(document.getElementById('next_chapters').value),
-        prev_chapters: parseInt(document.getElementById('prev_chapters').value)
+        next_chapters: parseInt(nextChaptersInput.value),
+        prev_chapters: parseInt(prevChaptersInput.value)
     };
     
     // 显示进度条和状态消息
@@ -27,11 +39,24 @@ function handleCrawlSubmit(e) {
     const statusMessage = document.getElementById('status-message');
     const resultContainer = document.getElementById('result-container');
     
+    // 禁用提交按钮并显示加载状态
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>提交中...';
+    
     progressBar.style.display = 'block';
-    statusMessage.className = 'alert alert-info status-message';
+    statusMessage.className = 'alert alert-info status-message fade-in';
     statusMessage.textContent = '正在提交爬取任务...';
     statusMessage.style.display = 'block';
     resultContainer.style.display = 'none';
+    
+    // 模拟进度条动画
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        if (progress < 50) {
+            progress += 5;
+            progressBar.querySelector('.progress-bar').style.width = `${progress}%`;
+        }
+    }, 100);
     
     // 发送请求
     fetch(`${API_BASE_URL}/crawl`, {
@@ -42,6 +67,7 @@ function handleCrawlSubmit(e) {
         body: JSON.stringify(formData)
     })
     .then(response => {
+        clearInterval(progressInterval);
         if (!response.ok) {
             throw new Error(`HTTP错误! 状态码: ${response.status}`);
         }
@@ -58,10 +84,12 @@ function handleCrawlSubmit(e) {
         }
     })
     .then(data => {
-        if (data.error) {
-            statusMessage.className = 'alert alert-danger status-message';
-            statusMessage.textContent = `错误: ${data.error}`;
+        if (!data.success) {
+            statusMessage.className = 'alert alert-danger status-message fade-in';
+            statusMessage.textContent = `错误: ${data.error || '未知错误'}`;
             progressBar.style.display = 'none';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>开始爬取';
             return;
         }
         
@@ -69,19 +97,20 @@ function handleCrawlSubmit(e) {
         statusMessage.textContent = `爬取任务已开始，任务ID: ${taskId}`;
         
         // 轮询任务状态
-        pollTaskStatus(taskId);
+        pollTaskStatus(taskId, progressBar, statusMessage, submitBtn);
     })
     .catch(error => {
-        statusMessage.className = 'alert alert-danger status-message';
+        clearInterval(progressInterval);
+        statusMessage.className = 'alert alert-danger status-message fade-in';
         statusMessage.textContent = `请求失败: ${error.message}`;
         progressBar.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>开始爬取';
     });
 }
 
 // 轮询任务状态
-function pollTaskStatus(taskId) {
-    const progressBar = document.getElementById('progress-bar');
-    const statusMessage = document.getElementById('status-message');
+function pollTaskStatus(taskId, progressBar, statusMessage, submitBtn) {
     const resultContainer = document.getElementById('result-container');
     const resultContent = document.getElementById('result-content');
     
@@ -102,34 +131,45 @@ function pollTaskStatus(taskId) {
             throw new Error(`JSON解析错误: ${e.message}`);
         }
     })
-    .then(task => {
-        if (task.error) {
-            statusMessage.className = 'alert alert-danger status-message';
-            statusMessage.textContent = `错误: ${task.error}`;
+    .then(data => {
+        if (!data.success) {
+            statusMessage.className = 'alert alert-danger status-message fade-in';
+            statusMessage.textContent = `错误: ${data.error || '未知错误'}`;
             progressBar.style.display = 'none';
+            // 恢复提交按钮状态
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>开始爬取';
+            }
             return;
         }
+        
+        const task = data.task;
         
         // 更新状态消息
         let statusText = '';
         let statusClass = '';
+        let progressValue = 0;
         
         switch (task.status) {
             case 'pending':
                 statusText = '任务等待中...';
                 statusClass = 'alert-info';
+                progressValue = 10;
                 break;
             case 'running':
                 statusText = '爬取进行中...';
                 statusClass = 'alert-primary';
+                progressValue = 60;
                 break;
             case 'completed':
                 statusText = '爬取完成！';
                 statusClass = 'alert-success';
+                progressValue = 100;
                 
                 // 显示结果
                 let resultHtml = `
-                    <div class="card">
+                    <div class="card fade-in">
                         <div class="card-body">
                             <h5 class="card-title">任务详情</h5>
                             <p class="card-text"><strong>任务ID:</strong> ${task.id}</p>
@@ -146,7 +186,7 @@ function pollTaskStatus(taskId) {
                                 <h6 class="mt-4">生成文件列表:</h6>
                                 <ul class="list-group">
                                     ${task.output_files.map(file => `
-                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center fade-in">
                                             ${file}
                                             <div class="btn-group">
                                                 <a href="/download/${task.output_dir}/${file}" class="btn btn-sm btn-outline-primary">下载</a>
@@ -158,6 +198,7 @@ function pollTaskStatus(taskId) {
                             ` : ''}
                             
                             ${task.stdout ? `<div class="mt-3"><h6>标准输出:</h6><pre class="bg-light p-3 rounded">${task.stdout}</pre></div>` : ''}
+                            ${task.stderr ? `<div class="mt-3"><h6>错误输出:</h6><pre class="bg-light p-3 rounded text-danger">${task.stderr}</pre></div>` : ''}
                         </div>
                     </div>
                 `;
@@ -165,14 +206,20 @@ function pollTaskStatus(taskId) {
                 resultContent.innerHTML = resultHtml;
                 resultContainer.style.display = 'block';
                 progressBar.style.display = 'none';
+                // 恢复提交按钮状态
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>开始爬取';
+                }
                 return;
             case 'failed':
                 statusText = '爬取失败！';
                 statusClass = 'alert-danger';
+                progressValue = 100;
                 
                 // 显示错误信息
                 let errorHtml = `
-                    <div class="card">
+                    <div class="card fade-in">
                         <div class="card-body">
                             <h5 class="card-title">任务详情</h5>
                             <p class="card-text"><strong>任务ID:</strong> ${task.id}</p>
@@ -180,7 +227,8 @@ function pollTaskStatus(taskId) {
                             <p class="card-text"><strong>输出格式:</strong> ${task.format}</p>
                             <p class="card-text"><strong>向后爬取:</strong> ${task.next_chapters} 章</p>
                             <p class="card-text"><strong>向前爬取:</strong> ${task.prev_chapters} 章</p>
-                            <p class="card-text"><strong>错误信息:</strong> ${task.error}</p>
+                            <p class="card-text text-danger"><strong>错误信息:</strong> ${task.error}</p>
+                            ${task.stderr ? `<div class="mt-3"><h6>错误输出:</h6><pre class="bg-light p-3 rounded text-danger">${task.stderr}</pre></div>` : ''}
                         </div>
                     </div>
                 `;
@@ -188,19 +236,32 @@ function pollTaskStatus(taskId) {
                 resultContent.innerHTML = errorHtml;
                 resultContainer.style.display = 'block';
                 progressBar.style.display = 'none';
+                // 恢复提交按钮状态
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>开始爬取';
+                }
                 return;
         }
         
-        statusMessage.className = `alert ${statusClass} status-message`;
+        statusMessage.className = `alert ${statusClass} status-message fade-in`;
         statusMessage.textContent = statusText;
         
+        // 更新进度条
+        progressBar.querySelector('.progress-bar').style.width = `${progressValue}%`;
+        
         // 继续轮询
-        setTimeout(() => pollTaskStatus(taskId), 1000);
+        setTimeout(() => pollTaskStatus(taskId, progressBar, statusMessage, submitBtn), 1000);
     })
     .catch(error => {
-        statusMessage.className = 'alert alert-danger status-message';
+        statusMessage.className = 'alert alert-danger status-message fade-in';
         statusMessage.textContent = `获取任务状态失败: ${error.message}`;
         progressBar.style.display = 'none';
+        // 恢复提交按钮状态
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-play-circle-fill me-2"></i>开始爬取';
+        }
     });
 }
 
@@ -256,7 +317,14 @@ function loadHistory() {
             throw new Error(`JSON解析错误: ${e.message}`);
         }
     })
-    .then(history => {
+    .then(data => {
+        if (!data.success) {
+            historyContainer.innerHTML = `<div class="alert alert-danger" role="alert">加载历史记录失败: ${data.error || '未知错误'}</div>`;
+            return;
+        }
+        
+        const history = data.history;
+        
         if (history.length === 0) {
             historyContainer.innerHTML = '<div class="alert alert-info" role="alert">暂无历史记录</div>';
             return;

@@ -143,51 +143,63 @@ def history():
 # 提交爬取任务
 @app.route('/api/crawl', methods=['POST'])
 def crawl():
-    data = request.json
-    url = data.get('url')
-    format = data.get('format', 'txt')
-    output_dir = data.get('output_dir', './output')
-    next_chapters = data.get('next_chapters', 0)
-    prev_chapters = data.get('prev_chapters', 0)
-    
-    if not url:
-        return jsonify({'error': 'URL不能为空'}), 400
-    
-    # 生成任务ID
-    task_id = str(uuid.uuid4())
-    
-    # 初始化任务状态
-    tasks[task_id] = {
-        'id': task_id,
-        'url': url,
-        'format': format,
-        'output_dir': output_dir,
-        'next_chapters': next_chapters,
-        'prev_chapters': prev_chapters,
-        'status': 'pending',
-        'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    # 启动异步爬取任务
-    thread = threading.Thread(target=run_crawler, args=(task_id, url, format, output_dir, next_chapters, prev_chapters))
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({'task_id': task_id})
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'error': '请求体不能为空'}), 400
+            
+        url = data.get('url')
+        format = data.get('format', 'txt')
+        output_dir = data.get('output_dir', './output')
+        next_chapters = data.get('next_chapters', 0)
+        prev_chapters = data.get('prev_chapters', 0)
+        
+        if not url:
+            return jsonify({'error': 'URL不能为空'}), 400
+        
+        # 生成任务ID
+        task_id = str(uuid.uuid4())
+        
+        # 初始化任务状态
+        tasks[task_id] = {
+            'id': task_id,
+            'url': url,
+            'format': format,
+            'output_dir': output_dir,
+            'next_chapters': next_chapters,
+            'prev_chapters': prev_chapters,
+            'status': 'pending',
+            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # 启动异步爬取任务
+        thread = threading.Thread(target=run_crawler, args=(task_id, url, format, output_dir, next_chapters, prev_chapters))
+        thread.daemon = True
+        thread.start()
+        
+        return jsonify({'success': True, 'task_id': task_id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # 获取任务状态
 @app.route('/api/task/<task_id>', methods=['GET'])
 def get_task_status(task_id):
-    if task_id not in tasks:
-        return jsonify({'error': '任务不存在'}), 404
-    
-    return jsonify(tasks[task_id])
+    try:
+        if task_id not in tasks:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+        
+        return jsonify({'success': True, 'task': tasks[task_id]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # 获取历史记录
 @app.route('/api/history', methods=['GET'])
 def get_history():
-    history = load_history()
-    return jsonify(history)
+    try:
+        history = load_history()
+        return jsonify({'success': True, 'history': history})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # 下载文件
 @app.route('/download/<path:filename>')

@@ -1,12 +1,19 @@
 name = "article-crawler"
-type = "static"
-build_command = ""
+type = "pages"
+build_command = "pip install -r requirements.txt && python app.py"
+
+[build]
+command = "pip install -r requirements.txt"
 publish = "frontend"
 
+[functions]
+# 配置Pages Functions支持
+# Pages Functions使用JavaScript，无法直接运行Python，但可以通过其他方式集成
+
 [env.production]
-build_command = ""
+build_command = "pip install -r requirements.txt"
 publish = "frontend"
 
 [env.development]
-build_command = ""
+build_command = "pip install -r requirements.txt"
 publish = "frontend"
