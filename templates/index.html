@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,7 +10,8 @@
     <style>
         :root {
             --bg-color: #f0f0f0;
-            --main-accent: #ff4d4d; /* 避免紫色，使用鲜明的红色 */
+            --main-accent: #ff4d4d;
+            /* 避免紫色，使用鲜明的红色 */
             --border-color: #1a1a1a;
             --card-bg: #ffffff;
             --text-color: #1a1a1a;
@@ -21,7 +23,8 @@
             background-color: var(--bg-color);
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
             color: var(--text-color);
-            font-family: 'Courier New', Courier, monospace; /* 粗野主义常用等宽或硬朗字体 */
+            font-family: 'Courier New', Courier, monospace;
+            /* 粗野主义常用等宽或硬朗字体 */
             min-height: 100vh;
             padding: 2rem 1rem;
             margin: 0;
@@ -65,7 +68,8 @@
         .brutal-card {
             background-color: var(--card-bg);
             border: 4px solid var(--border-color);
-            border-radius: 0; /* 放弃圆角 */
+            border-radius: 0;
+            /* 放弃圆角 */
             padding: 2rem;
             box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
             margin-bottom: 2rem;
@@ -87,7 +91,8 @@
             font-size: 1.1rem;
         }
 
-        .form-control, .form-select {
+        .form-control,
+        .form-select {
             border: 3px solid var(--border-color);
             border-radius: 0;
             padding: 0.8rem;
@@ -97,7 +102,8 @@
             transition: none;
         }
 
-        .form-control:focus, .form-select:focus {
+        .form-control:focus,
+        .form-select:focus {
             outline: none;
             box-shadow: 4px 4px 0 var(--main-accent);
             border-color: var(--border-color);
@@ -141,7 +147,8 @@
         .btn-primary:hover {
             background-color: #ff3333;
             color: white;
-            border-color: var(--border-color); /* 覆盖默认 */
+            border-color: var(--border-color);
+            /* 覆盖默认 */
         }
 
         .btn-secondary {
@@ -168,7 +175,8 @@
 
         .progress-bar {
             background-color: var(--main-accent);
-            transition: width 0.1s linear; /* 取消平滑过渡，让它更硬朗 */
+            transition: width 0.1s linear;
+            /* 取消平滑过渡，让它更硬朗 */
         }
 
         .status-message {
@@ -181,10 +189,25 @@
             display: none;
         }
 
-        .alert-info { background-color: #e0f7fa; color: inherit; }
-        .alert-primary { background-color: #ffd700; color: inherit; }
-        .alert-success { background-color: #a5d6a7; color: inherit; }
-        .alert-danger { background-color: #ef9a9a; color: inherit; }
+        .alert-info {
+            background-color: #e0f7fa;
+            color: inherit;
+        }
+
+        .alert-primary {
+            background-color: #ffd700;
+            color: inherit;
+        }
+
+        .alert-success {
+            background-color: #a5d6a7;
+            color: inherit;
+        }
+
+        .alert-danger {
+            background-color: #ef9a9a;
+            color: inherit;
+        }
 
         /* 结果区域 */
         .result-container {
@@ -255,20 +278,30 @@
             line-height: 1.8;
             max-height: 60vh;
             overflow-y: auto;
-            box-shadow: inset 4px 4px 0 rgba(0,0,0,0.05);
+            box-shadow: inset 4px 4px 0 rgba(0, 0, 0, 0.05);
         }
 
         /* 响应式调整 */
         @media (max-width: 768px) {
-            .brutal-card { padding: 1.5rem; }
-            h1 { font-size: 2rem; }
-            .btn { width: 100%; margin-bottom: 1rem; }
+            .brutal-card {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .btn {
+                width: 100%;
+                margin-bottom: 1rem;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
-        
+
         <header class="page-header">
             <h1>文章抓取机器</h1>
             <div class="subtitle">干掉无聊的复制粘贴！</div>
@@ -282,7 +315,7 @@
                     </label>
                     <input type="url" class="form-control" id="url" name="url" placeholder="https://..." required>
                 </div>
-                
+
                 <div class="row g-4 mb-4">
                     <div class="col-md-4">
                         <div class="form-group">
@@ -295,28 +328,30 @@
                             </select>
                         </div>
                     </div>
-                    
+
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="next_chapters" class="form-label">
                                 <iconify-icon icon="ph:arrow-fat-right-bold"></iconify-icon> 往后扒几章？
                             </label>
-                            <input type="number" class="form-control" id="next_chapters" name="next_chapters" min="0" value="0">
+                            <input type="number" class="form-control" id="next_chapters" name="next_chapters" min="0"
+                                value="0">
                             <div class="form-text">写0就只跑当前这页。</div>
                         </div>
                     </div>
-                    
+
                     <div class="col-md-4">
                         <div class="form-group">
                             <label for="prev_chapters" class="form-label">
                                 <iconify-icon icon="ph:arrow-fat-left-bold"></iconify-icon> 往前翻几章？
                             </label>
-                            <input type="number" class="form-control" id="prev_chapters" name="prev_chapters" min="0" value="0">
+                            <input type="number" class="form-control" id="prev_chapters" name="prev_chapters" min="0"
+                                value="0">
                             <div class="form-text">同上，别太贪心。</div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="form-group mb-4">
                     <label for="output_dir" class="form-label">
                         <iconify-icon icon="ph:folder-open-bold"></iconify-icon> 存哪儿？
@@ -324,7 +359,7 @@
                     <input type="text" class="form-control" id="output_dir" name="output_dir" value="./output">
                     <div class="form-text">默认塞进当前目录的 output 文件夹。</div>
                 </div>
-                
+
                 <div class="d-flex flex-column flex-md-row gap-3 mt-5">
                     <button type="submit" class="btn btn-primary flex-grow-1">
                         <iconify-icon icon="ph:rocket-launch-bold"></iconify-icon> 开搞！
@@ -334,13 +369,14 @@
                     </a>
                 </div>
             </form>
-            
+
             <div class="progress" id="progress-bar">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
             </div>
-            
+
             <div class="status-message" id="status-message"></div>
-            
+
         </div>
 
         <div class="result-container" id="result-container">
@@ -352,7 +388,7 @@
                 <iconify-icon icon="ph:house-bold"></iconify-icon> 再来一发
             </a>
         </div>
-        
+
     </div>
 
     <!-- 模态框 -->
@@ -375,12 +411,12 @@
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        document.getElementById('crawl-form').addEventListener('submit', function(e) {
+        document.getElementById('crawl-form').addEventListener('submit', function (e) {
             e.preventDefault();
-            
+
             const formData = {
                 url: document.getElementById('url').value,
                 format: document.getElementById('format').value,
@@ -388,83 +424,86 @@
                 next_chapters: parseInt(document.getElementById('next_chapters').value),
                 prev_chapters: parseInt(document.getElementById('prev_chapters').value)
             };
-            
+
             const progressBar = document.getElementById('progress-bar');
             const statusMessage = document.getElementById('status-message');
             const resultContainer = document.getElementById('result-container');
-            
+
             progressBar.style.display = 'block';
             statusMessage.className = 'status-message alert-info';
             statusMessage.innerHTML = '<iconify-icon icon="ph:spinner-bold" class="rotate-icon"></iconify-icon> 机器轰鸣中，稍等...';
             statusMessage.style.display = 'block';
             resultContainer.style.display = 'none';
-            
+
             fetch('/api/crawl', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusMessage.className = 'status-message alert-danger';
+                        statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: ${data.error}`;
+                        progressBar.style.display = 'none';
+                        return;
+                    }
+
+                    const taskId = data.task_ids && data.task_ids.length > 0 ? data.task_ids[0] : null;
+
+                    if (!taskId) {
+                        statusMessage.className = 'status-message alert-danger';
+                        statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: 未获取到任务 ID`;
+                        progressBar.style.display = 'none';
+                        return;
+                    }
+
+                    statusMessage.innerHTML = `<iconify-icon icon="ph:engine-bold"></iconify-icon> 任务编号: ${taskId}，正在狂奔...`;
+                    pollTaskStatus(taskId);
+                })
+                .catch(error => {
                     statusMessage.className = 'status-message alert-danger';
-                    statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: ${data.error}`;
+                    statusMessage.innerHTML = `<iconify-icon icon="ph:wifi-slash-bold"></iconify-icon> 网络断了: ${error.message}`;
                     progressBar.style.display = 'none';
-                    return;
-                }
-                
-                const taskId = data.task_ids && data.task_ids.length > 0 ? data.task_ids[0] : null;
-                
-                if (!taskId) {
-                    statusMessage.className = 'status-message alert-danger';
-                    statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: 未获取到任务 ID`;
-                    progressBar.style.display = 'none';
-                    return;
-                }
-                
-                statusMessage.innerHTML = `<iconify-icon icon="ph:engine-bold"></iconify-icon> 任务编号: ${taskId}，正在狂奔...`;
-                pollTaskStatus(taskId);
-            })
-            .catch(error => {
-                statusMessage.className = 'status-message alert-danger';
-                statusMessage.innerHTML = `<iconify-icon icon="ph:wifi-slash-bold"></iconify-icon> 网络断了: ${error.message}`;
-                progressBar.style.display = 'none';
-            });
+                });
         });
-        
+
         function pollTaskStatus(taskId) {
             const progressBar = document.getElementById('progress-bar');
             const statusMessage = document.getElementById('status-message');
             const resultContainer = document.getElementById('result-container');
             const resultContent = document.getElementById('result-content');
-            
+
             fetch(`/api/task/${taskId}`)
-            .then(response => response.json())
-            .then(task => {
-                if (task.error) {
-                    statusMessage.className = 'status-message alert-danger';
-                    statusMessage.innerHTML = `<span class="fw-bold">爆炸了:</span> ${task.error}`;
-                    progressBar.style.display = 'none';
-                    return;
-                }
-                
-                let statusText = '';
-                let statusClass = '';
-                
-                switch (task.status) {
-                    case 'pending':
-                        statusText = '还在排队呢...';
-                        statusClass = 'alert-info';
-                        break;
-                    case 'running':
-                        statusText = '正在疯狂薅羊毛...';
-                        statusClass = 'alert-primary';
-                        break;
-                    case 'completed':
-                        statusText = '大功告成！全扒下来了。';
-                        statusClass = 'alert-success';
-                        
-                        let resultHtml = `
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusMessage.className = 'status-message alert-danger';
+                        statusMessage.innerHTML = `<span class="fw-bold">爆炸了:</span> ${data.error}`;
+                        progressBar.style.display = 'none';
+                        return;
+                    }
+
+                    // 从响应中解包 task 对象
+                    const task = data.task || data;
+
+                    let statusText = '';
+                    let statusClass = '';
+
+                    switch (task.status) {
+                        case 'pending':
+                            statusText = '还在排队呢...';
+                            statusClass = 'alert-info';
+                            break;
+                        case 'running':
+                            statusText = '正在疯狂薅羊毛...';
+                            statusClass = 'alert-primary';
+                            break;
+                        case 'completed':
+                            statusText = '大功告成！全扒下来了。';
+                            statusClass = 'alert-success';
+
+                            let resultHtml = `
                             <div class="brutal-card p-3 mb-4">
                                 <h4>战报清单</h4>
                                 <ul style="list-style: square;">
@@ -475,11 +514,11 @@
                                 </ul>
                             </div>
                         `;
-                        
-                        if(task.output_files && task.output_files.length > 0) {
-                            resultHtml += `<div class="mt-4"><h5 class="fw-bold">文件打包带走：</h5><ul class="list-group">`;
-                            task.output_files.forEach(file => {
-                                resultHtml += `
+
+                            if (task.output_files && task.output_files.length > 0) {
+                                resultHtml += `<div class="mt-4"><h5 class="fw-bold">文件打包带走：</h5><ul class="list-group">`;
+                                task.output_files.forEach(file => {
+                                    resultHtml += `
                                     <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <span class="text-break">${file}</span>
                                         <div class="d-flex gap-2">
@@ -492,44 +531,45 @@
                                         </div>
                                     </li>
                                 `;
-                            });
-                            resultHtml += `</ul></div>`;
-                        }
-                        
-                        resultContent.innerHTML = resultHtml;
-                        resultContainer.style.display = 'block';
-                        progressBar.style.display = 'none';
-                        return;
-                    case 'failed':
-                        statusText = '抱歉，挂了！可能网站反扒了。';
-                        statusClass = 'alert-danger';
-                        
-                        resultContent.innerHTML = `
+                                });
+                                resultHtml += `</ul></div>`;
+                            }
+
+                            resultContent.innerHTML = resultHtml;
+                            resultContainer.style.display = 'block';
+                            progressBar.style.display = 'none';
+                            return;
+                        case 'failed':
+                            statusText = '抱歉，挂了！可能网站反扒了。';
+                            statusClass = 'alert-danger';
+
+                            resultContent.innerHTML = `
                             <div class="brutal-card p-3" style="border-color: #ff4d4d;">
                                 <h4>错误信息：</h4>
                                 <p>${task.error}</p>
                             </div>
                         `;
-                        resultContainer.style.display = 'block';
-                        progressBar.style.display = 'none';
-                        return;
-                }
-                
-                statusMessage.className = `status-message ${statusClass}`;
-                statusMessage.innerHTML = `<span class="fw-bold me-2">></span> ${statusText}`;
-                
-                setTimeout(() => pollTaskStatus(taskId), 1000);
-            })
-            .catch(error => {
-                statusMessage.className = 'status-message alert-danger';
-                statusMessage.innerHTML = `断连: ${error.message}`;
-                progressBar.style.display = 'none';
-            });
+                            resultContainer.style.display = 'block';
+                            progressBar.style.display = 'none';
+                            return;
+                    }
+
+                    statusMessage.className = `status-message ${statusClass}`;
+                    statusMessage.innerHTML = `<span class="fw-bold me-2">></span> ${statusText}`;
+
+                    setTimeout(() => pollTaskStatus(taskId), 1000);
+                })
+                .catch(error => {
+                    statusMessage.className = 'status-message alert-danger';
+                    statusMessage.innerHTML = `断连: ${error.message}`;
+                    progressBar.style.display = 'none';
+                });
         }
-        
+
         function viewArticle(filename) {
             window.location.href = `/article/${filename}`;
         }
     </script>
 </body>
+
 </html>
