@@ -185,10 +185,16 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         # 执行命令
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         
-        # 获取输出文件列表
+        # 获取输出文件列表（只包含文章文件，排除隐藏文件和系统文件）
         output_files = []
+        article_extensions = {'.txt', '.md', '.html', '.htm'}
         if os.path.exists(output_dir):
-            output_files = [f for f in os.listdir(output_dir) if os.path.isfile(os.path.join(output_dir, f))]
+            output_files = [
+                f for f in os.listdir(output_dir)
+                if os.path.isfile(os.path.join(output_dir, f))
+                and not f.startswith('.')
+                and os.path.splitext(f)[1].lower() in article_extensions
+            ]
         
         # 对文件列表按照章节号排序
         def sort_files_by_chapter(files):
