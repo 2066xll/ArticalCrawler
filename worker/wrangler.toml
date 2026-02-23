@@ -1,0 +1,8 @@
+# Worker-specific configuration - do not inherit parent config
+name = "article-crawler-worker"
+compatibility_date = "2025-12-09"
+main = "index.js"
+
+# 确保不继承父目录的配置
+enable_pages_functions = false
+

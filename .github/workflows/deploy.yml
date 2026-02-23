@@ -10,11 +10,12 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
+        cache: 'pip'
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -25,36 +26,43 @@ jobs:
         echo "Running tests..."
     - name: Lint code
       run: |
-        # 这里可以添加代码检查命令
-        echo "Linting code..."
+        # 安装代码检查工具
+        pip install flake8
+        # 运行代码检查
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
   deploy-to-vercel:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Deploy to Vercel
-      uses: amondnet/vercel-action@v22
+      uses: amondnet/vercel-action@v25
       with:
         vercel-token: ${{ secrets.VERCEL_TOKEN }}
         vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
         vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
         vercel-args: '--prod'
+        working-directory: '.'
 
   deploy-to-cloudflare-pages:
     needs: build-and-test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Deploy to Cloudflare Pages
       uses: cloudflare/pages-action@v1
       with:
         apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         projectName: article-crawler
-        branch: main
-        # Cloudflare Pages Functions使用JavaScript，所以我们只部署静态文件
-        # 后端Flask应用需要部署到其他平台
+        branch: ${{ github.ref_name }}
+        # 部署静态前端文件
         directory: frontend
+        # 启用生产环境部署
+        production: true
+        # 配置构建命令
+        buildCommand: echo "Building static frontend..."

@@ -3,43 +3,299 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://api.example.com; font-src 'self' https://cdn.jsdelivr.net; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; upgrade-insecure-requests; block-all-mixed-content;">
-    <title>爬取历史 - 文章爬取工具</title>
+    <title>历史抓取战绩 - 文章抓取</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="css/style.css">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --main-accent: #ff4d4d;
+            --border-color: #1a1a1a;
+            --card-bg: #ffffff;
+            --text-color: #1a1a1a;
+            --shadow-offset: 6px;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 4px solid var(--border-color);
+            padding-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-title {
+            font-weight: 900;
+            font-size: 2.5rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .btn {
+            border: 3px solid var(--border-color);
+            border-radius: 0;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 0.6rem 1.2rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 4px 4px 0 var(--border-color);
+            background-color: #ffd700;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: all 0.1s;
+        }
+
+        .btn:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 var(--border-color);
+            background-color: #ffcc00;
+            color: var(--text-color);
+        }
+
+        .btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--border-color);
+        }
+
+        /* 文件列表 */
+        .brutal-list {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .brutal-item {
+            background: var(--card-bg);
+            border: 4px solid var(--border-color);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: transform 0.1s;
+        }
+
+        .brutal-item:hover {
+            transform: translateX(4px);
+        }
+
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .item-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .item-meta {
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #666;
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .badge-brutal {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.8rem;
+            border: 2px solid var(--border-color);
+            text-transform: uppercase;
+            font-family: inherit;
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.9rem;
+            box-shadow: 2px 2px 0 var(--border-color);
+        }
+
+        .btn-view { background-color: #e0e0e0; }
+        .btn-view:hover { background-color: #ccc; }
+        
+        .btn-delete { background-color: var(--main-accent); color: white; }
+        .btn-delete:hover { background-color: #cc0000; color: white; }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: #fff;
+            border: 4px dashed var(--border-color);
+            font-weight: bold;
+            font-size: 1.5rem;
+            color: #666;
+            transform: rotate(-1deg);
+        }
+
+        @media (max-width: 768px) {
+            .item-header { flex-direction: column; }
+            .actions { width: 100%; }
+            .actions .btn { flex: 1; justify-content: center; }
+        }
+    </style>
 </head>
-<body data-page="history">
-    <div class="container history-container">
-        <div class="card shadow">
-            <div class="card-header">
-                <h1 class="text-center"><i class="bi bi-clock-history me-2"></i>爬取历史记录</h1>
-            </div>
-            <div class="card-body">
-                <div class="mb-4">
-                    <a href="index.html" class="btn btn-primary">
-                        <i class="bi bi-house-door-fill me-2"></i>返回首页
-                    </a>
-                </div>
-                
-                <!-- 历史记录列表 -->
-                <div id="history-container">
-                    <div class="text-center">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">加载中...</span>
-                        </div>
-                        <p class="mt-2">正在加载历史记录...</p>
-                    </div>
-                </div>
-            </div>
+<body>
+    <div class="container">
+        
+        <div class="page-header">
+            <h1 class="page-title"><iconify-icon icon="ph:archive-box-bold"></iconify-icon> 战绩仓库</h1>
+            <a href="/" class="btn">
+                <iconify-icon icon="ph:house-bold"></iconify-icon> 返回干活
+            </a>
         </div>
+        
+        <div id="loading" class="empty-state">
+            <iconify-icon icon="ph:spinner-bold" class="rotate-icon" width="60" style="display:block; margin: 0 auto 1rem;"></iconify-icon>
+            正在回想之前干了啥...
+        </div>
+        
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <iconify-icon icon="ph:ghost-bold" width="60" style="display:block; margin: 0 auto 1rem;"></iconify-icon>
+            干干净净，啥战利品也没有，赶紧去抓点啥吧！
+            <a href="/" class="btn btn-primary mt-3 d-block mx-auto" style="width: fit-content;">
+                <iconify-icon icon="ph:rocket-launch-bold"></iconify-icon> 去抓点东西
+            </a>
+        </div>
+        
+        <div id="history-list" style="display: none;">
+            <div class="mb-4 font-monospace fw-bold fs-5">
+                <iconify-icon icon="ph:list-bullets-bold"></iconify-icon> 共找到 <span id="total-count" class="badge bg-dark text-white rounded-0 px-2 py-1">0</span> 票买卖
+            </div>
+            <div class="brutal-list" id="tasks-container"></div>
+        </div>
+        
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/app.js"></script>
+
     <script>
-        // 页面加载时自动加载历史记录
-        document.addEventListener('DOMContentLoaded', loadHistory);
+        document.addEventListener('DOMContentLoaded', fetchHistory);
+        
+        function fetchHistory() {
+            fetch('/api/history')
+                .then(response => response.json())
+                .then(data => {
+                    const history = data.history;
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    if (!history || history.length === 0) {
+                        document.getElementById('empty-state').style.display = 'block';
+                    } else {
+                        document.getElementById('history-list').style.display = 'block';
+                        document.getElementById('total-count').textContent = history.length;
+                        
+                        history.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+                        
+                        let html = '';
+                        history.forEach(task => {
+                            let statusBadge = '';
+                            if (task.status === 'completed') {
+                                statusBadge = '<span class="badge-brutal" style="background:var(--card-bg);color:var(--text-color);">搞定</span>';
+                            } else if (task.status === 'failed') {
+                                statusBadge = '<span class="badge-brutal" style="background:var(--main-accent);color:white;border-color:var(--border-color);">翻车</span>';
+                            } else {
+                                statusBadge = '<span class="badge-brutal bg-secondary">未知</span>';
+                            }
+                            
+                            let fileListHtml = '';
+                            if (task.output_files && task.output_files.length > 0) {
+                                fileListHtml = `<div class="mt-3 py-2 px-3 bg-light border border-dark border-3" style="font-family: monospace;">`;
+                                fileListHtml += `<h6 class="fw-bold mb-2 text-decoration-underline">战利品清单:</h6>`;
+                                task.output_files.forEach(file => {
+                                    fileListHtml += `
+                                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2 border-bottom border-dark border-1 pb-1">
+                                            <span>${file}</span>
+                                            <div>
+                                                <a href="/download/${task.output_dir}/${file}" class="btn btn-sm py-0 px-2 fs-6">
+                                                    下载
+                                                </a>
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+                                fileListHtml += `</div>`;
+                            }
+                            
+                            html += `
+                                <div class="brutal-item file-item">
+                                    <div class="item-header pb-2 border-bottom border-dark border-3">
+                                        <div>
+                                            <div class="item-title">
+                                                ${statusBadge} 
+                                                <span class="fs-6 font-monospace ms-2">ID: ${task.id.substring(0, 8)}</span>
+                                            </div>
+                                            <div class="item-meta mt-2">
+                                                <span class="px-2 py-1 bg-dark text-white"><iconify-icon icon="ph:clock-bold"></iconify-icon> ${task.start_time}</span>
+                                                <span class="px-2 py-1 border border-dark"><iconify-icon icon="ph:file-html-bold"></iconify-icon> ${task.format.toUpperCase()}</span>
+                                                <span class="px-2 py-1 border border-dark"><iconify-icon icon="ph:folder-bold"></iconify-icon> ${task.output_dir}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 fw-bold">
+                                        <div><iconify-icon icon="ph:link-bold"></iconify-icon> <a href="${task.url}" target="_blank" class="text-dark">${task.url}</a></div>
+                                        <div class="mt-1 d-flex gap-3 text-secondary" style="font-size: 0.9rem;">
+                                            <span>前进: ${task.next_chapters} 单</span>
+                                            <span>后退: ${task.prev_chapters} 单</span>
+                                            <span>捞了: ${task.file_count || 0} 个</span>
+                                        </div>
+                                    </div>
+                                    ${task.error ? `<div class="mt-2 text-white p-2" style="background:var(--main-accent); border:3px solid var(--border-color); font-weight:bold;">${task.error}</div>` : ''}
+                                    ${fileListHtml}
+                                </div>
+                            `;
+                        });
+                        
+                        document.getElementById('tasks-container').innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('loading').innerHTML = `
+                        <iconify-icon icon="ph:warning-circle-bold" width="60" style="display:block; margin: 0 auto 1rem; color:var(--main-accent);"></iconify-icon>
+                        回忆失败:网络可能断了
+                        <br>
+                        <button onclick="fetchHistory()" class="btn mt-3"><iconify-icon icon="ph:arrows-clockwise-bold"></iconify-icon> 再试一次</button>
+                    `;
+                });
+        }
     </script>
 </body>
 </html>

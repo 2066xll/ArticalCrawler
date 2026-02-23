@@ -1,0 +1,53 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - fix-json-error
+  pull_request:
+    branches:
+      - main
+      - master
+      - fix-json-error
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: article-crawler
+          branch: ${{ github.ref_name }}
+          directory: frontend
+          # Build command (optional)
+          buildCommand: pip install -r requirements.txt
+          # Output directory (optional, defaults to _site)
+          outputDirectory: frontend
+          # Environment variables (optional)
+          env:
+            NODE_VERSION: 18
+            PYTHON_VERSION: 3.9
+
+      - name: Deploy to Vercel (optional)
+        uses: amondnet/vercel-action@v22
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'

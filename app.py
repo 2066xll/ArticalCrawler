@@ -11,6 +11,84 @@ from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory, make_response
 import subprocess
 
+# 添加缓存支持
+from functools import wraps
+import hashlib
+
+# 简单的内存缓存
+cache = {}
+cache_expiry = {}
+
+# 缓存装饰器
+def cache_decorator(expiry=30):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # 生成缓存键
+            key = hashlib.md5(f"{func.__name__}:{args}:{kwargs}".encode()).hexdigest()
+            
+            # 检查缓存是否存在且未过期
+            current_time = time.time()
+            if key in cache and current_time < cache_expiry.get(key, 0):
+                return cache[key]
+            
+            # 执行函数
+            result = func(*args, **kwargs)
+            
+            # 保存到缓存
+            cache[key] = result
+            cache_expiry[key] = current_time + expiry
+            
+            return result
+        return wrapper
+    return decorator
+
+# 清除特定缓存
+def clear_cache(func_name):
+    keys_to_remove = []
+    for key in cache:
+        if func_name in key:
+            keys_to_remove.append(key)
+    for key in keys_to_remove:
+        del cache[key]
+        if key in cache_expiry:
+            del cache_expiry[key]
+
+# API请求限制
+# 简单的IP请求限制，记录每个IP的请求次数
+api_requests = {}
+API_RATE_LIMIT = 100  # 每个IP每分钟最多100次请求
+RATE_LIMIT_WINDOW = 60  # 时间窗口（秒）
+
+# API请求限制装饰器
+def rate_limit_decorator(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        # 获取客户端IP
+        client_ip = request.remote_addr
+        current_time = time.time()
+        
+        # 清理过期的请求记录
+        if client_ip in api_requests:
+            # 过滤掉过期的请求
+            api_requests[client_ip] = [t for t in api_requests[client_ip] if current_time - t < RATE_LIMIT_WINDOW]
+        
+        # 检查请求次数
+        if client_ip in api_requests and len(api_requests[client_ip]) >= API_RATE_LIMIT:
+            return jsonify({
+                'success': False,
+                'error': 'API请求次数超过限制，请稍后再试'
+            }), 429
+        
+        # 记录请求时间
+        if client_ip not in api_requests:
+            api_requests[client_ip] = []
+        api_requests[client_ip].append(current_time)
+        
+        # 执行函数
+        return func(*args, **kwargs)
+    return wrapper
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
@@ -20,7 +98,17 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
+
+# 处理OPTIONS请求（CORS预检）
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    return make_response('', 204)
+
+@app.route('/api', methods=['OPTIONS'])
+def handle_root_options():
+    return make_response('', 204)
 
 # 配置静态文件目录
 app.static_folder = 'frontend'
@@ -31,6 +119,8 @@ tasks = {}
 
 # 历史记录文件
 HISTORY_FILE = 'data/history.json'
+# 任务状态文件
+TASKS_FILE = 'data/tasks.json'
 
 # 确保data目录存在
 os.makedirs('data', exist_ok=True)
@@ -39,6 +129,11 @@ os.makedirs('data', exist_ok=True)
 if not os.path.exists(HISTORY_FILE):
     with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump([], f)
+
+# 初始化任务状态文件
+if not os.path.exists(TASKS_FILE):
+    with open(TASKS_FILE, 'w', encoding='utf-8') as f:
+        json.dump({}, f)
 
 # 加载历史记录
 def load_history():
@@ -49,6 +144,20 @@ def load_history():
 def save_history(history):
     with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
+
+# 加载任务状态
+def load_tasks():
+    global tasks
+    with open(TASKS_FILE, 'r', encoding='utf-8') as f:
+        tasks = json.load(f)
+
+# 保存任务状态
+def save_tasks():
+    with open(TASKS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(tasks, f, ensure_ascii=False, indent=2)
+
+# 加载任务状态
+load_tasks()
 
 # 添加历史记录
 def add_history(record):
@@ -62,12 +171,16 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         # 更新任务状态
         tasks[task_id]['status'] = 'running'
         tasks[task_id]['start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        # 保存任务状态
+        save_tasks()
         
         # 构建命令
         # 直接使用用户输入的章节数量作为 -n 参数
         # article_crawler.py 现在将 -n 参数直接解释为总章节数（包括当前章节）
         command = f'python3 article_crawler.py "{url}" -f {format} -o "{output_dir}" -n {next_chapters} -p {prev_chapters}'
         tasks[task_id]['command'] = command
+        # 保存任务状态
+        save_tasks()
         
         # 执行命令
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -101,6 +214,8 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         tasks[task_id]['stderr'] = result.stderr[:1000] if result.stderr else ''
         tasks[task_id]['output_files'] = sorted_output_files
         tasks[task_id]['file_count'] = len(sorted_output_files)
+        # 保存任务状态
+        save_tasks()
         
         # 添加到历史记录
         history_record = {
@@ -122,6 +237,8 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         tasks[task_id]['status'] = 'failed'
         tasks[task_id]['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         tasks[task_id]['error'] = str(e)
+        # 保存任务状态
+        save_tasks()
         
         # 添加到历史记录
         history_record = {
@@ -143,65 +260,115 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
 def index():
     return send_from_directory('frontend', 'index.html')
 
+# 首页路由（带.html后缀）
+@app.route('/index.html')
+def index_html():
+    return send_from_directory('frontend', 'index.html')
+
 # 历史记录页面路由
 @app.route('/history')
 def history():
     return send_from_directory('frontend', 'history.html')
 
+# 历史记录页面路由（带.html后缀）
+@app.route('/history.html')
+def history_html():
+    return send_from_directory('frontend', 'history.html')
+
+# 统计页面路由
+@app.route('/stats')
+def stats():
+    return send_from_directory('frontend', 'stats.html')
+
+# 统计页面路由（带.html后缀）
+@app.route('/stats.html')
+def stats_html():
+    return send_from_directory('frontend', 'stats.html')
+
 # 提交爬取任务
 @app.route('/api/crawl', methods=['POST'])
+@rate_limit_decorator
 def crawl():
     try:
         data = request.json
         if not data:
             return jsonify({'error': '请求体不能为空'}), 400
             
-        url = data.get('url')
         format = data.get('format', 'txt')
         output_dir = data.get('output_dir', './output')
         next_chapters = data.get('next_chapters', 0)
         prev_chapters = data.get('prev_chapters', 0)
         
-        if not url:
-            return jsonify({'error': 'URL不能为空'}), 400
+        # 处理批量URL请求
+        urls = data.get('urls', [])
+        if not urls:
+            # 兼容旧的单个URL请求
+            url = data.get('url')
+            if not url:
+                return jsonify({'error': 'URL不能为空'}), 400
+            urls = [url]
         
-        # 生成任务ID
-        task_id = str(uuid.uuid4())
+        # 生成任务ID列表
+        task_ids = []
         
-        # 初始化任务状态
-        tasks[task_id] = {
-            'id': task_id,
-            'url': url,
-            'format': format,
-            'output_dir': output_dir,
-            'next_chapters': next_chapters,
-            'prev_chapters': prev_chapters,
-            'status': 'pending',
-            'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
+        # 为每个URL启动一个爬取任务
+        for url in urls:
+            # 生成任务ID
+            task_id = str(uuid.uuid4())
+            
+            # 初始化任务状态
+            tasks[task_id] = {
+                'id': task_id,
+                'url': url,
+                'format': format,
+                'output_dir': output_dir,
+                'next_chapters': next_chapters,
+                'prev_chapters': prev_chapters,
+                'status': 'pending',
+                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            
+            # 启动异步爬取任务
+            thread = threading.Thread(target=run_crawler, args=(task_id, url, format, output_dir, next_chapters, prev_chapters))
+            thread.daemon = True
+            thread.start()
+            
+            task_ids.append(task_id)
         
-        # 启动异步爬取任务
-        thread = threading.Thread(target=run_crawler, args=(task_id, url, format, output_dir, next_chapters, prev_chapters))
-        thread.daemon = True
-        thread.start()
+        # 保存任务状态
+        save_tasks()
         
-        return jsonify({'success': True, 'task_id': task_id})
+        return jsonify({'success': True, 'task_ids': task_ids})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # 获取任务状态
 @app.route('/api/task/<task_id>', methods=['GET'])
+@rate_limit_decorator
+@cache_decorator(expiry=5)  # 5秒缓存
 def get_task_status(task_id):
     try:
         if task_id not in tasks:
             return jsonify({'success': False, 'error': '任务不存在'}), 404
-        
+    
         return jsonify({'success': True, 'task': tasks[task_id]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# 获取所有任务状态
+@app.route('/api/tasks', methods=['GET'])
+@rate_limit_decorator
+@cache_decorator(expiry=5)  # 短时间缓存，因为任务状态会频繁变化
+def get_all_tasks():
+    try:
+        return jsonify({'success': True, 'tasks': tasks})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # 获取历史记录
 @app.route('/api/history', methods=['GET'])
+@rate_limit_decorator
+@cache_decorator(expiry=60)  # 较长时间缓存，历史记录变化不频繁
 def get_history():
     try:
         history = load_history()
@@ -211,6 +378,7 @@ def get_history():
 
 # 下载文件
 @app.route('/download/<path:filename>')
+@rate_limit_decorator
 def download_file(filename):
     # 获取文件所在目录
     directory = os.path.dirname(filename)
@@ -219,6 +387,8 @@ def download_file(filename):
 
 # 查看文章内容（API）
 @app.route('/view/<path:filename>')
+@rate_limit_decorator
+@cache_decorator(expiry=300)  # 较长时间缓存，文章内容不会变化
 def view_file(filename):
     try:
         # 完整文件路径
@@ -264,6 +434,8 @@ def article_view(filename):
 
 # 获取文章内容的API
 @app.route('/api/article/<path:filename>', methods=['GET'])
+@rate_limit_decorator
+@cache_decorator(expiry=300)  # 较长时间缓存，文章内容不会变化
 def get_article_content(filename):
     try:
         # 完整文件路径
