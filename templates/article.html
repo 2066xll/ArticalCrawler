@@ -10,14 +10,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <style>
-        /* ========== CSS Variables ========== */
+        /* =====================================================
+           CSS VARIABLES — 4 Reader Themes
+           ===================================================== */
         :root {
-            /* Light mode (default) */
-            --bg-color: #f5f0e8;
-            --bg-noise-opacity: 0.06;
+            --bg-color: #fffdf7;
             --card-bg: #fffdf7;
             --text-color: #2a2a2a;
-            --text-muted: #777;
+            --text-muted: #888;
             --border-color: #1a1a1a;
             --accent: #ff4d4d;
             --accent-hover: #ff3333;
@@ -25,13 +25,42 @@
             --btn-bg-hover: #ffcc00;
             --shadow-offset: 5px;
             --meta-bg: #e8e4dc;
-            --progress-bg: rgba(0, 0, 0, 0.08);
-            --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+            --panel-bg: #fff;
+            --overlay-bg: rgba(0, 0, 0, 0.35);
+            --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+            --toc-active: #fff3cd;
+        }
+
+        [data-theme="warm"] {
+            --bg-color: #f5ecd7;
+            --card-bg: #f5ecd7;
+            --text-color: #3d3626;
+            --text-muted: #8a7e6a;
+            --border-color: #3d3626;
+            --meta-bg: #e8dcc0;
+            --panel-bg: #f5ecd7;
+            --toc-active: #e8dcc0;
+            --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+        }
+
+        [data-theme="green"] {
+            --bg-color: #cce8cc;
+            --card-bg: #cce8cc;
+            --text-color: #2d3e2d;
+            --text-muted: #5a7a5a;
+            --border-color: #2d3e2d;
+            --accent: #4a9e4a;
+            --accent-hover: #3d8a3d;
+            --meta-bg: #b3d9b3;
+            --panel-bg: #cce8cc;
+            --toc-active: #b3d9b3;
+            --btn-bg: #7ec87e;
+            --btn-bg-hover: #6db86d;
+            --scrollbar-thumb: rgba(0, 0, 0, 0.12);
         }
 
         [data-theme="dark"] {
             --bg-color: #1a1a2e;
-            --bg-noise-opacity: 0.04;
             --card-bg: #16213e;
             --text-color: #e0d8c8;
             --text-muted: #8a8a9a;
@@ -41,34 +70,37 @@
             --btn-bg: #e6c300;
             --btn-bg-hover: #d4b300;
             --meta-bg: #0f3460;
-            --progress-bg: rgba(255, 255, 255, 0.08);
-            --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+            --panel-bg: #16213e;
+            --overlay-bg: rgba(0, 0, 0, 0.55);
+            --toc-active: #0f3460;
+            --scrollbar-thumb: rgba(255, 255, 255, 0.15);
         }
 
-        /* ========== Globals ========== */
+        /* =====================================================
+           GLOBALS
+           ===================================================== */
         * {
             box-sizing: border-box;
             margin: 0;
-            padding: 0;
+            padding: 0
         }
 
         html {
             scroll-behavior: smooth;
-            scrollbar-color: var(--scrollbar-thumb) transparent;
+            scrollbar-color: var(--scrollbar-thumb) transparent
         }
 
         body {
             background-color: var(--bg-color);
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
             color: var(--text-color);
             font-family: 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
             min-height: 100vh;
-            padding: 0;
-            margin: 0;
-            transition: background-color 0.3s, color 0.3s;
+            transition: background-color .3s, color .3s;
         }
 
-        /* ========== Reading Progress Bar ========== */
+        /* =====================================================
+           READING PROGRESS BAR
+           ===================================================== */
         .reading-progress {
             position: fixed;
             top: 0;
@@ -77,49 +109,58 @@
             height: 4px;
             background: linear-gradient(90deg, var(--accent), var(--btn-bg));
             z-index: 1000;
-            transition: width 0.1s linear;
+            transition: width .1s linear
         }
 
-        /* ========== Top Toolbar ========== */
+        /* =====================================================
+           TOOLBAR
+           ===================================================== */
         .toolbar {
             position: sticky;
             top: 0;
             z-index: 100;
-            background: var(--card-bg);
+            background: var(--panel-bg);
             border-bottom: 3px solid var(--border-color);
-            padding: 0.6rem 1.5rem;
+            padding: .5rem 1rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            transition: background 0.3s;
+            gap: .4rem;
+            transition: background .3s, transform .3s, opacity .3s;
+        }
+
+        .toolbar.hidden {
+            transform: translateY(-100%);
+            opacity: 0;
+            pointer-events: none
         }
 
         .toolbar-left,
         .toolbar-right {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: .4rem
         }
 
-        /* ========== Buttons ========== */
+        /* =====================================================
+           BUTTONS
+           ===================================================== */
         .btn {
             border: 3px solid var(--border-color);
             border-radius: 0;
             font-weight: 800;
-            padding: 0.4rem 0.8rem;
+            padding: .35rem .7rem;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
+            gap: .35rem;
             box-shadow: 3px 3px 0 var(--border-color);
-            transition: all 0.1s;
+            transition: all .1s;
             background-color: var(--btn-bg);
             color: var(--text-color);
             text-decoration: none;
             font-family: 'Courier New', monospace;
-            font-size: 0.85rem;
+            font-size: .82rem;
             white-space: nowrap;
         }
 
@@ -128,34 +169,34 @@
             box-shadow: 5px 5px 0 var(--border-color);
             background-color: var(--btn-bg-hover);
             color: var(--text-color);
-            text-decoration: none;
+            text-decoration: none
         }
 
         .btn:active {
             transform: translate(2px, 2px);
-            box-shadow: 1px 1px 0 var(--border-color);
+            box-shadow: 1px 1px 0 var(--border-color)
         }
 
         .btn-ghost {
             background: transparent;
             box-shadow: none;
             border: 2px solid var(--border-color);
-            padding: 0.35rem 0.6rem;
+            padding: .3rem .55rem
         }
 
         .btn-ghost:hover {
             background: var(--meta-bg);
-            box-shadow: none;
+            box-shadow: none
         }
 
         .btn-nav {
             background-color: var(--accent);
-            color: white;
+            color: white
         }
 
         .btn-nav:hover {
             background-color: var(--accent-hover);
-            color: white;
+            color: white
         }
 
         .btn-nav.disabled {
@@ -164,137 +205,392 @@
             box-shadow: none;
             cursor: not-allowed;
             transform: none;
-            pointer-events: none;
+            pointer-events: none
         }
 
-        /* Font size control */
-        .font-control {
+        /* =====================================================
+           TOC SIDEBAR (Drawer)
+           ===================================================== */
+        .toc-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--overlay-bg);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s
+        }
+
+        .toc-overlay.open {
+            opacity: 1;
+            pointer-events: all
+        }
+
+        .toc-drawer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 320px;
+            max-width: 85vw;
+            background: var(--panel-bg);
+            border-right: 4px solid var(--border-color);
+            z-index: 210;
+            transform: translateX(-100%);
+            transition: transform .3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toc-drawer.open {
+            transform: translateX(0)
+        }
+
+        .toc-header {
+            padding: 1rem;
+            border-bottom: 3px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 900;
+            font-size: 1.1rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        .toc-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: .5rem 0
+        }
+
+        .toc-item {
+            display: block;
+            padding: .6rem 1rem;
+            font-size: .88rem;
+            cursor: pointer;
+            border-bottom: 1px solid var(--meta-bg);
+            transition: background .15s;
+            text-decoration: none;
+            color: var(--text-color);
+        }
+
+        .toc-item:hover {
+            background: var(--meta-bg)
+        }
+
+        .toc-item.active {
+            background: var(--toc-active);
+            font-weight: bold;
+            border-left: 4px solid var(--accent)
+        }
+
+        /* =====================================================
+           SETTINGS PANEL (Bottom sheet, Safari-style)
+           ===================================================== */
+        .settings-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--overlay-bg);
+            z-index: 300;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .25s
+        }
+
+        .settings-overlay.open {
+            opacity: 1;
+            pointer-events: all
+        }
+
+        .settings-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--panel-bg);
+            border-top: 4px solid var(--border-color);
+            z-index: 310;
+            transform: translateY(100%);
+            transition: transform .3s ease;
+            max-height: 75vh;
+            overflow-y: auto;
+            padding: 1.2rem 1.5rem 2rem;
+        }
+
+        .settings-panel.open {
+            transform: translateY(0)
+        }
+
+        .settings-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--text-muted);
+            border-radius: 2px;
+            margin: 0 auto 1rem
+        }
+
+        .settings-section {
+            margin-bottom: 1.5rem
+        }
+
+        .settings-label {
+            font-weight: 900;
+            font-size: .9rem;
+            margin-bottom: .6rem;
+            font-family: 'Courier New', monospace;
             display: flex;
             align-items: center;
-            gap: 0;
-            border: 2px solid var(--border-color);
+            gap: .4rem
         }
 
-        .font-control button {
-            background: transparent;
-            border: none;
-            border-right: 2px solid var(--border-color);
-            color: var(--text-color);
+        /* Theme swatches */
+        .theme-swatches {
+            display: flex;
+            gap: .6rem;
+            flex-wrap: wrap
+        }
+
+        .swatch {
+            width: 44px;
+            height: 44px;
+            border: 3px solid var(--border-color);
             cursor: pointer;
-            padding: 0.3rem 0.55rem;
-            font-size: 0.9rem;
+            position: relative;
+            transition: transform .15s;
+        }
+
+        .swatch:hover {
+            transform: scale(1.1)
+        }
+
+        .swatch.active::after {
+            content: '✓';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.2rem
+        }
+
+        .swatch[data-theme="light"] {
+            background: #fffdf7;
+            color: #2a2a2a
+        }
+
+        .swatch[data-theme="warm"] {
+            background: #f5ecd7;
+            color: #3d3626
+        }
+
+        .swatch[data-theme="green"] {
+            background: #cce8cc;
+            color: #2d3e2d
+        }
+
+        .swatch[data-theme="dark"] {
+            background: #1a1a2e;
+            color: #e0d8c8
+        }
+
+        /* Slider */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: .8rem
+        }
+
+        .slider-row input[type=range] {
+            flex: 1;
+            accent-color: var(--accent)
+        }
+
+        .slider-val {
+            font-family: 'Courier New', monospace;
             font-weight: bold;
-            transition: background 0.15s;
+            font-size: .85rem;
+            min-width: 36px;
+            text-align: center
         }
 
-        .font-control button:last-child {
-            border-right: none;
+        /* Spacing chips */
+        .spacing-chips {
+            display: flex;
+            gap: .5rem
         }
 
-        .font-control button:hover {
-            background: var(--meta-bg);
+        .chip {
+            padding: .3rem .8rem;
+            border: 2px solid var(--border-color);
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: .82rem;
+            font-weight: bold;
+            transition: background .15s;
         }
 
-        .font-control button.active {
+        .chip:hover {
+            background: var(--meta-bg)
+        }
+
+        .chip.active {
             background: var(--accent);
             color: white;
+            border-color: var(--accent)
         }
 
-        /* ========== Main Content Area ========== */
+        /* Toggle switches */
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: .45rem 0;
+            border-bottom: 1px solid var(--meta-bg)
+        }
+
+        .toggle-row:last-child {
+            border-bottom: none
+        }
+
+        .toggle-label {
+            font-size: .88rem;
+            font-weight: 600
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0
+        }
+
+        .toggle-track {
+            position: absolute;
+            inset: 0;
+            background: var(--meta-bg);
+            border: 2px solid var(--border-color);
+            transition: background .2s;
+        }
+
+        .toggle-track::after {
+            content: '';
+            position: absolute;
+            left: 2px;
+            top: 2px;
+            width: 16px;
+            height: 16px;
+            background: var(--text-color);
+            transition: transform .2s;
+        }
+
+        .toggle-switch input:checked+.toggle-track {
+            background: var(--accent)
+        }
+
+        .toggle-switch input:checked+.toggle-track::after {
+            transform: translateX(20px);
+            background: white
+        }
+
+        /* =====================================================
+           READER CONTENT
+           ===================================================== */
         .reader-wrap {
             max-width: 780px;
             margin: 0 auto;
-            padding: 2rem 1.5rem 4rem;
+            padding: 2rem 1.5rem 4rem
         }
 
-        /* Article header */
         .article-header {
             background: var(--card-bg);
             border: 4px solid var(--border-color);
             padding: 2rem 2rem 1.5rem;
             box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
             margin-bottom: 1.5rem;
-            transition: background 0.3s;
+            transition: background .3s;
         }
 
         .article-title {
             font-weight: 900;
             font-size: 1.8rem;
-            margin: 0 0 1rem 0;
-            line-height: 1.4;
+            margin: 0 0 1rem;
+            line-height: 1.4
         }
 
         .article-meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.8rem;
-            font-size: 0.85rem;
-            color: var(--text-muted);
+            gap: .8rem;
+            font-size: .85rem;
+            color: var(--text-muted)
         }
 
         .meta-item {
             display: inline-flex;
             align-items: center;
-            gap: 0.3rem;
+            gap: .3rem;
             background: var(--meta-bg);
-            padding: 0.25rem 0.6rem;
+            padding: .25rem .6rem;
             border: 2px solid var(--border-color);
             font-family: 'Courier New', monospace;
-            transition: background 0.3s;
+            transition: background .3s;
         }
 
-        /* Article body */
         .article-body {
             background: var(--card-bg);
             border: 4px solid var(--border-color);
             padding: 2.5rem 2rem;
             box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
             margin-bottom: 2rem;
-            transition: background 0.3s;
-        }
-
-        /* Font size variants */
-        .article-body.fs-small {
-            font-size: 1rem;
-            line-height: 2;
-        }
-
-        .article-body.fs-medium {
-            font-size: 1.15rem;
-            line-height: 2.1;
-        }
-
-        .article-body.fs-large {
-            font-size: 1.35rem;
-            line-height: 2.2;
+            transition: background .3s;
         }
 
         .article-body p {
             margin-bottom: 1.2em;
             text-indent: 2em;
             text-align: justify;
-            letter-spacing: 0.02em;
+            letter-spacing: .02em
         }
 
         .article-body p:last-child {
-            margin-bottom: 0;
+            margin-bottom: 0
         }
 
-        /* ========== Chapter Navigation ========== */
+        /* Chapter nav */
         .chapter-nav {
             display: flex;
             gap: 1rem;
-            align-items: stretch;
+            align-items: stretch
         }
 
         .chapter-nav .btn-nav {
             flex: 1;
             justify-content: center;
-            padding: 0.8rem 1rem;
-            font-size: 0.95rem;
+            padding: .8rem 1rem;
+            font-size: .95rem
         }
 
-        /* ========== Back-to-top ========== */
+        .kbd {
+            display: inline-block;
+            padding: .1rem .4rem;
+            font-size: .7rem;
+            font-family: 'Courier New', monospace;
+            background: var(--meta-bg);
+            border: 2px solid var(--border-color);
+            margin-left: .3rem;
+            vertical-align: middle
+        }
+
+        /* =====================================================
+           BACK-TO-TOP & TOOLBAR-REVEAL
+           ===================================================== */
         .back-to-top {
             position: fixed;
             bottom: 2rem;
@@ -310,7 +606,7 @@
             cursor: pointer;
             opacity: 0;
             transform: translateY(20px);
-            transition: opacity 0.3s, transform 0.3s;
+            transition: opacity .3s, transform .3s;
             pointer-events: none;
             z-index: 50;
         }
@@ -318,22 +614,40 @@
         .back-to-top.visible {
             opacity: 1;
             transform: translateY(0);
-            pointer-events: all;
+            pointer-events: all
         }
 
         .back-to-top:hover {
             transform: translateY(-3px);
-            box-shadow: 5px 5px 0 var(--border-color);
+            box-shadow: 5px 5px 0 var(--border-color)
         }
 
-        /* ========== Loading & Error States ========== */
+        /* Toolbar reveal strip (when toolbar is hidden) */
+        .toolbar-reveal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 12px;
+            z-index: 99;
+            cursor: pointer;
+            opacity: 0;
+        }
+
+        .toolbar-reveal.active {
+            opacity: 1
+        }
+
+        /* =====================================================
+           LOADING & ERROR
+           ===================================================== */
         .loading-state,
         .error-state {
             text-align: center;
             padding: 4rem 2rem;
             background: var(--card-bg);
             border: 4px solid var(--border-color);
-            box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color)
         }
 
         .loading-spinner {
@@ -343,65 +657,59 @@
             border: 5px solid var(--meta-bg);
             border-top-color: var(--accent);
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            animation: spin .8s linear infinite
         }
 
         @keyframes spin {
             to {
-                transform: rotate(360deg);
+                transform: rotate(360deg)
             }
         }
 
         .error-state iconify-icon {
             font-size: 2rem;
-            color: var(--accent);
+            color: var(--accent)
         }
 
-        /* ========== Keyboard hint tooltip ========== */
-        .kbd {
-            display: inline-block;
-            padding: 0.1rem 0.4rem;
-            font-size: 0.7rem;
-            font-family: 'Courier New', monospace;
-            background: var(--meta-bg);
-            border: 2px solid var(--border-color);
-            margin-left: 0.3rem;
-            vertical-align: middle;
-        }
-
-        /* ========== Responsive ========== */
-        @media (max-width: 640px) {
+        /* =====================================================
+           RESPONSIVE
+           ===================================================== */
+        @media(max-width:640px) {
             .reader-wrap {
-                padding: 1rem 0.8rem 3rem;
+                padding: 1rem .8rem 3rem
             }
 
             .article-header {
-                padding: 1.2rem;
+                padding: 1.2rem
             }
 
             .article-body {
-                padding: 1.5rem 1.2rem;
+                padding: 1.5rem 1.2rem
             }
 
             .article-title {
-                font-size: 1.4rem;
+                font-size: 1.4rem
             }
 
             .chapter-nav {
-                flex-direction: column;
+                flex-direction: column
             }
 
             .toolbar {
-                padding: 0.5rem 0.8rem;
+                padding: .4rem .6rem
             }
 
             .btn {
-                font-size: 0.78rem;
-                padding: 0.35rem 0.6rem;
+                font-size: .76rem;
+                padding: .3rem .5rem
             }
 
             .kbd {
-                display: none;
+                display: none
+            }
+
+            .settings-panel {
+                padding: 1rem
             }
         }
     </style>
@@ -411,237 +719,340 @@
     <!-- Reading progress -->
     <div class="reading-progress" id="readingProgress"></div>
 
+    <!-- Toolbar reveal zone (when toolbar is hidden) -->
+    <div class="toolbar-reveal" id="toolbarReveal"></div>
+
     <!-- Toolbar -->
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
         <div class="toolbar-left">
-            <a href="/" class="btn">
-                <iconify-icon icon="ph:house-bold"></iconify-icon> 首页
-            </a>
-            <a href="/history" class="btn btn-ghost">
-                <iconify-icon icon="ph:clock-counter-clockwise-bold"></iconify-icon> 历史
+            <button class="btn btn-ghost" onclick="toggleToc()" title="章节目录">
+                <iconify-icon icon="ph:list-bold"></iconify-icon> 目录
+            </button>
+            <a href="/" class="btn btn-ghost">
+                <iconify-icon icon="ph:house-bold"></iconify-icon>
             </a>
         </div>
         <div class="toolbar-right">
-            <!-- Font size -->
-            <div class="font-control" title="字号">
-                <button onclick="setFontSize('small')" id="fs-small">A<sup>-</sup></button>
-                <button onclick="setFontSize('medium')" id="fs-medium" class="active">A</button>
-                <button onclick="setFontSize('large')" id="fs-large">A<sup>+</sup></button>
-            </div>
-            <!-- Theme toggle -->
-            <button class="btn btn-ghost" onclick="toggleTheme()" id="themeToggle" title="切换深色/浅色模式">
-                <iconify-icon icon="ph:moon-bold" id="themeIcon"></iconify-icon>
+            <button class="btn btn-ghost" id="prevToolbarBtn" title="上一章 (←)" disabled onclick="navPrev()">
+                <iconify-icon icon="ph:caret-left-bold"></iconify-icon>
             </button>
+            <button class="btn btn-ghost" id="nextToolbarBtn" title="下一章 (→)" disabled onclick="navNext()">
+                <iconify-icon icon="ph:caret-right-bold"></iconify-icon>
+            </button>
+            <button class="btn btn-ghost" onclick="toggleSettings()" title="阅读设置">
+                <iconify-icon icon="ph:sliders-horizontal-bold"></iconify-icon>
+            </button>
+        </div>
+    </div>
+
+    <!-- TOC Sidebar -->
+    <div class="toc-overlay" id="tocOverlay" onclick="toggleToc()"></div>
+    <div class="toc-drawer" id="tocDrawer">
+        <div class="toc-header">
+            <span><iconify-icon icon="ph:book-open-text-bold"></iconify-icon> 章节目录</span>
+            <button class="btn btn-ghost" onclick="toggleToc()" style="padding:.2rem .4rem">
+                <iconify-icon icon="ph:x-bold"></iconify-icon>
+            </button>
+        </div>
+        <div class="toc-list" id="tocList">
+            <div style="padding:1rem;text-align:center;color:var(--text-muted)">加载中...</div>
+        </div>
+    </div>
+
+    <!-- Settings Panel (Safari-style bottom sheet) -->
+    <div class="settings-overlay" id="settingsOverlay" onclick="toggleSettings()"></div>
+    <div class="settings-panel" id="settingsPanel">
+        <div class="settings-handle"></div>
+
+        <!-- Theme -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:palette-bold"></iconify-icon> 主题配色</div>
+            <div class="theme-swatches">
+                <div class="swatch" data-theme="light" onclick="setTheme('light')" title="纸白"></div>
+                <div class="swatch" data-theme="warm" onclick="setTheme('warm')" title="暖黄"></div>
+                <div class="swatch" data-theme="green" onclick="setTheme('green')" title="护眼绿"></div>
+                <div class="swatch" data-theme="dark" onclick="setTheme('dark')" title="夜幕"></div>
+            </div>
+        </div>
+
+        <!-- Font size slider -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:text-aa-bold"></iconify-icon> 字号</div>
+            <div class="slider-row">
+                <span style="font-size:.75rem;font-weight:bold">A</span>
+                <input type="range" min="14" max="24" step="1" id="fontSlider" oninput="setFontSize(this.value)">
+                <span style="font-size:1.2rem;font-weight:bold">A</span>
+                <span class="slider-val" id="fontVal">18px</span>
+            </div>
+        </div>
+
+        <!-- Line spacing -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:arrows-out-line-vertical-bold"></iconify-icon> 行距</div>
+            <div class="spacing-chips">
+                <div class="chip" data-spacing="1.6" onclick="setSpacing('1.6')">紧凑</div>
+                <div class="chip active" data-spacing="2.0" onclick="setSpacing('2.0')">适中</div>
+                <div class="chip" data-spacing="2.6" onclick="setSpacing('2.6')">宽松</div>
+            </div>
+        </div>
+
+        <!-- Element toggles -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:eye-bold"></iconify-icon> 显示元素</div>
+            <div class="toggle-row">
+                <span class="toggle-label">阅读进度条</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleProgress" checked
+                        onchange="toggleElement('progress')"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">文章信息</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleMeta" checked
+                        onchange="toggleElement('meta')"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">章节导航按钮</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleNav" checked
+                        onchange="toggleElement('nav')"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">顶部工具栏</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleToolbar" checked
+                        onchange="toggleElement('toolbar')"><span class="toggle-track"></span></label>
+            </div>
         </div>
     </div>
 
     <!-- Main reader area -->
     <div class="reader-wrap">
-        <!-- Loading state -->
         <div id="loadingState" class="loading-state">
             <div class="loading-spinner"></div>
-            <p style="margin-top:1rem; font-weight:bold;">正在加载文章...</p>
+            <p style="margin-top:1rem;font-weight:bold">正在加载文章...</p>
         </div>
-
-        <!-- Error state (hidden by default) -->
-        <div id="errorState" class="error-state" style="display:none;">
+        <div id="errorState" class="error-state" style="display:none">
             <iconify-icon icon="ph:warning-circle-bold"></iconify-icon>
-            <p id="errorMessage" style="margin-top:1rem; font-weight:bold;"></p>
-            <a href="/" class="btn" style="margin-top:1rem;">
-                <iconify-icon icon="ph:house-bold"></iconify-icon> 回首页
-            </a>
+            <p id="errorMessage" style="margin-top:1rem;font-weight:bold"></p>
+            <a href="/" class="btn" style="margin-top:1rem"><iconify-icon icon="ph:house-bold"></iconify-icon> 回首页</a>
         </div>
-
-        <!-- Article (hidden until loaded) -->
-        <div id="articleWrap" style="display:none;">
-            <div class="article-header">
+        <div id="articleWrap" style="display:none">
+            <div class="article-header" id="articleHeader">
                 <h1 class="article-title" id="articleTitle"></h1>
                 <div class="article-meta" id="articleMeta"></div>
             </div>
-
-            <div class="article-body fs-medium" id="articleBody"></div>
-
-            <!-- Bottom chapter navigation -->
-            <div class="chapter-nav">
-                <a class="btn btn-nav disabled" id="prevBtn">
-                    <iconify-icon icon="ph:arrow-left-bold"></iconify-icon> 上一章 <span class="kbd">←</span>
-                </a>
-                <a class="btn btn-nav disabled" id="nextBtn">
-                    下一章 <iconify-icon icon="ph:arrow-right-bold"></iconify-icon> <span class="kbd">→</span>
-                </a>
+            <div class="article-body" id="articleBody"></div>
+            <div class="chapter-nav" id="chapterNav">
+                <a class="btn btn-nav disabled" id="prevBtn"><iconify-icon icon="ph:arrow-left-bold"></iconify-icon> 上一章
+                    <span class="kbd">←</span></a>
+                <a class="btn btn-nav disabled" id="nextBtn">下一章 <iconify-icon
+                        icon="ph:arrow-right-bold"></iconify-icon> <span class="kbd">→</span></a>
             </div>
         </div>
     </div>
 
     <!-- Back-to-top -->
     <div class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0})">
-        <iconify-icon icon="ph:arrow-up-bold" style="font-size:1.3rem;"></iconify-icon>
+        <iconify-icon icon="ph:arrow-up-bold" style="font-size:1.3rem"></iconify-icon>
     </div>
 
     <script>
         (function () {
             // ========== State ==========
-            let currentFilePath = '';
-            let prevArticle = null;
-            let nextArticle = null;
+            let prevArticle = null, nextArticle = null, chapterList = [];
 
-            // ========== Theme ==========
-            function applyTheme(theme) {
-                document.documentElement.setAttribute('data-theme', theme);
-                const icon = document.getElementById('themeIcon');
-                icon.setAttribute('icon', theme === 'dark' ? 'ph:sun-bold' : 'ph:moon-bold');
-                localStorage.setItem('reader-theme', theme);
+            // ========== Preferences ==========
+            const PREFS_KEY = 'reader-prefs';
+            const defaults = { theme: 'light', fontSize: 18, spacing: '2.0', showProgress: true, showMeta: true, showNav: true, showToolbar: true };
+            let prefs = Object.assign({}, defaults);
+
+            function loadPrefs() {
+                try { const s = localStorage.getItem(PREFS_KEY); if (s) prefs = Object.assign({}, defaults, JSON.parse(s)); } catch (e) { }
+            }
+            function savePrefs() {
+                try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (e) { }
             }
 
-            window.toggleTheme = function () {
-                const current = document.documentElement.getAttribute('data-theme');
-                applyTheme(current === 'dark' ? 'light' : 'dark');
+            // ========== Theme ==========
+            window.setTheme = function (t) {
+                prefs.theme = t;
+                if (t === 'light') document.documentElement.removeAttribute('data-theme');
+                else document.documentElement.setAttribute('data-theme', t);
+                document.querySelectorAll('.swatch').forEach(s => s.classList.toggle('active', s.dataset.theme === t));
+                savePrefs();
             };
 
-            // Init theme
-            const savedTheme = localStorage.getItem('reader-theme') || 'light';
-            applyTheme(savedTheme);
-
             // ========== Font Size ==========
-            window.setFontSize = function (size) {
-                const body = document.getElementById('articleBody');
-                body.className = 'article-body fs-' + size;
-                document.querySelectorAll('.font-control button').forEach(b => b.classList.remove('active'));
-                document.getElementById('fs-' + size).classList.add('active');
-                localStorage.setItem('reader-font-size', size);
+            window.setFontSize = function (v) {
+                v = parseInt(v);
+                prefs.fontSize = v;
+                document.getElementById('articleBody').style.fontSize = v + 'px';
+                document.getElementById('fontSlider').value = v;
+                document.getElementById('fontVal').textContent = v + 'px';
+                savePrefs();
+            };
+
+            // ========== Line Spacing ==========
+            window.setSpacing = function (v) {
+                prefs.spacing = v;
+                document.getElementById('articleBody').style.lineHeight = v;
+                document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.spacing === v));
+                savePrefs();
+            };
+
+            // ========== Element Toggles ==========
+            window.toggleElement = function (el) {
+                const map = {
+                    progress: { pref: 'showProgress', target: 'readingProgress', toggle: 'toggleProgress' },
+                    meta: { pref: 'showMeta', target: 'articleHeader', toggle: 'toggleMeta' },
+                    nav: { pref: 'showNav', target: 'chapterNav', toggle: 'toggleNav' },
+                    toolbar: { pref: 'showToolbar', target: 'toolbar', toggle: 'toggleToolbar' }
+                };
+                const m = map[el]; if (!m) return;
+                const cb = document.getElementById(m.toggle);
+                prefs[m.pref] = cb.checked;
+                const target = document.getElementById(m.target);
+                if (el === 'toolbar') {
+                    target.classList.toggle('hidden', !cb.checked);
+                    document.getElementById('toolbarReveal').classList.toggle('active', !cb.checked);
+                } else {
+                    target.style.display = cb.checked ? '' : 'none';
+                }
+                savePrefs();
+            };
+
+            function applyPrefs() {
+                setTheme(prefs.theme);
+                setFontSize(prefs.fontSize);
+                setSpacing(prefs.spacing);
+                // Toggles
+                document.getElementById('toggleProgress').checked = prefs.showProgress;
+                document.getElementById('toggleMeta').checked = prefs.showMeta;
+                document.getElementById('toggleNav').checked = prefs.showNav;
+                document.getElementById('toggleToolbar').checked = prefs.showToolbar;
+                if (!prefs.showProgress) document.getElementById('readingProgress').style.display = 'none';
+                if (!prefs.showMeta) document.getElementById('articleHeader').style.display = 'none';
+                if (!prefs.showNav) document.getElementById('chapterNav').style.display = 'none';
+                if (!prefs.showToolbar) {
+                    document.getElementById('toolbar').classList.add('hidden');
+                    document.getElementById('toolbarReveal').classList.add('active');
+                }
+            }
+
+            // ========== TOC ==========
+            window.toggleToc = function () {
+                const o = document.getElementById('tocOverlay'), d = document.getElementById('tocDrawer');
+                const open = d.classList.contains('open');
+                o.classList.toggle('open', !open); d.classList.toggle('open', !open);
+            };
+
+            function renderToc(list, currentFile) {
+                const el = document.getElementById('tocList');
+                if (!list || list.length === 0) { el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted)">暂无章节</div>'; return; }
+                el.innerHTML = list.map(f => {
+                    const name = f.replace(/^\d{4}_/, '').replace(/\.[^.]+$/, '');
+                    const isActive = f === currentFile;
+                    return `<a class="toc-item${isActive ? ' active' : ''}" data-file="${f}" onclick="tocNavigate('${f}')">${name}</a>`;
+                }).join('');
+            }
+
+            window.tocNavigate = function (file) {
+                toggleToc();
+                const dir = getFileDir();
+                navigateTo(dir + '/' + file);
+            };
+
+            // ========== Settings Panel ==========
+            window.toggleSettings = function () {
+                const o = document.getElementById('settingsOverlay'), p = document.getElementById('settingsPanel');
+                const open = p.classList.contains('open');
+                o.classList.toggle('open', !open); p.classList.toggle('open', !open);
             };
 
             // ========== Reading Progress ==========
             function updateProgress() {
-                const winH = window.innerHeight;
-                const docH = document.documentElement.scrollHeight;
-                const scrolled = window.scrollY;
-                const pct = Math.min(100, (scrolled / (docH - winH)) * 100);
+                const winH = window.innerHeight, docH = document.documentElement.scrollHeight;
+                const pct = Math.min(100, (window.scrollY / (docH - winH)) * 100);
                 document.getElementById('readingProgress').style.width = pct + '%';
-
-                // Back-to-top visibility
                 const btn = document.getElementById('backToTop');
-                if (scrolled > winH * 0.5) {
-                    btn.classList.add('visible');
-                } else {
-                    btn.classList.remove('visible');
-                }
+                btn.classList.toggle('visible', window.scrollY > winH * 0.5);
             }
             window.addEventListener('scroll', updateProgress, { passive: true });
 
-            // ========== Load Article ==========
+            // Toolbar reveal on hover
+            document.getElementById('toolbarReveal').addEventListener('mouseenter', function () {
+                if (!prefs.showToolbar) {
+                    document.getElementById('toolbar').classList.remove('hidden');
+                }
+            });
+            document.getElementById('toolbar').addEventListener('mouseleave', function () {
+                if (!prefs.showToolbar) {
+                    document.getElementById('toolbar').classList.add('hidden');
+                }
+            });
+
+            // ========== Article Loading ==========
             function getFilePath() {
-                // URL: /article/output/0357_xxx.txt → filePath = output/0357_xxx.txt
-                const path = decodeURIComponent(window.location.pathname);
-                const prefix = '/article/';
-                if (path.startsWith(prefix)) {
-                    return path.substring(prefix.length);
-                }
-                return '';
+                const p = decodeURIComponent(window.location.pathname);
+                return p.startsWith('/article/') ? p.substring(9) : '';
+            }
+            function getFileDir() {
+                const fp = getFilePath();
+                const idx = fp.lastIndexOf('/');
+                return idx >= 0 ? fp.substring(0, idx) : '';
+            }
+            function getFileName() {
+                const fp = getFilePath();
+                const idx = fp.lastIndexOf('/');
+                return idx >= 0 ? fp.substring(idx + 1) : fp;
             }
 
-            function parseTitle(content) {
-                // Extract the first line as the title
-                const lines = content.split('\n');
-                return lines[0] || '未知标题';
+            function parseTitle(c) { return c.split('\n')[0] || '未知标题'; }
+            function parseMetadata(c) {
+                const m = {};
+                c.split('\n').slice(1, 8).forEach(l => {
+                    l = l.trim();
+                    if (/^作者[:：]/.test(l)) m.author = l.replace(/^作者[:：]\s*/, '');
+                    else if (/^原文链接[:：]/.test(l)) m.source = l.replace(/^原文链接[:：]\s*/, '');
+                });
+                return m;
             }
-
-            function parseMetadata(content) {
-                // Extract metadata from the header section (lines 2-5 typically)
-                const lines = content.split('\n');
-                const meta = {};
-                for (let i = 1; i < Math.min(lines.length, 8); i++) {
-                    const line = lines[i].trim();
-                    if (line.startsWith('作者:') || line.startsWith('作者：')) {
-                        meta.author = line.replace(/^作者[:：]\s*/, '');
-                    } else if (line.startsWith('原文链接:') || line.startsWith('原文链接：')) {
-                        meta.source = line.replace(/^原文链接[:：]\s*/, '');
-                    } else if (line.startsWith('发布时间:') || line.startsWith('发布时间：')) {
-                        meta.date = line.replace(/^发布时间[:：]\s*/, '');
-                    }
-                }
-                return meta;
-            }
-
-            function extractBody(content) {
-                // Find the separator line (=====) and return everything after it
-                const sepIndex = content.indexOf('==================================================');
-                let body;
-                if (sepIndex !== -1) {
-                    body = content.substring(sepIndex + 50).trim();
-                } else {
-                    // No separator, skip the first few metadata lines
-                    const lines = content.split('\n');
-                    const startLine = Math.min(5, lines.length);
-                    body = lines.slice(startLine).join('\n').trim();
-                }
-                // Convert to paragraphs
-                return body
-                    .split(/\n\s*\n/)
-                    .filter(p => p.trim())
-                    .map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>')
-                    .join('\n');
+            function extractBody(c) {
+                const sep = c.indexOf('==================================================');
+                let body = sep !== -1 ? c.substring(sep + 50).trim() : c.split('\n').slice(5).join('\n').trim();
+                return body.split(/\n\s*\n/).filter(p => p.trim()).map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>').join('\n');
             }
 
             async function loadArticle(filePath) {
-                currentFilePath = filePath;
-
                 document.getElementById('loadingState').style.display = 'block';
                 document.getElementById('errorState').style.display = 'none';
                 document.getElementById('articleWrap').style.display = 'none';
-
                 try {
                     const resp = await fetch('/api/article/' + encodeURIComponent(filePath));
                     const data = await resp.json();
+                    if (!data.success) { showError(data.error || '加载失败'); return; }
 
-                    if (!data.success) {
-                        showError(data.error || '加载失败');
-                        return;
-                    }
-
-                    const content = data.content;
-                    const title = parseTitle(content);
-                    const meta = parseMetadata(content);
-                    const bodyHtml = extractBody(content);
-
-                    // Set page title
+                    const title = parseTitle(data.content);
+                    const meta = parseMetadata(data.content);
                     document.title = title + ' - 阅读器';
-
-                    // Render header
                     document.getElementById('articleTitle').textContent = title;
-                    let metaHtml = '';
-                    if (meta.author) {
-                        metaHtml += `<span class="meta-item"><iconify-icon icon="ph:user-bold"></iconify-icon> ${meta.author}</span>`;
-                    }
-                    if (meta.source) {
-                        metaHtml += `<span class="meta-item"><iconify-icon icon="ph:link-bold"></iconify-icon> <a href="${meta.source}" target="_blank" style="color:inherit;">${meta.source.length > 40 ? meta.source.substring(0, 40) + '...' : meta.source}</a></span>`;
-                    }
-                    metaHtml += `<span class="meta-item"><iconify-icon icon="ph:file-text-bold"></iconify-icon> ${data.filename}</span>`;
-                    document.getElementById('articleMeta').innerHTML = metaHtml;
 
-                    // Render body
-                    document.getElementById('articleBody').innerHTML = bodyHtml;
+                    let mh = '';
+                    if (meta.author) mh += `<span class="meta-item"><iconify-icon icon="ph:user-bold"></iconify-icon> ${meta.author}</span>`;
+                    if (meta.source) mh += `<span class="meta-item"><iconify-icon icon="ph:link-bold"></iconify-icon> <a href="${meta.source}" target="_blank" style="color:inherit">${meta.source.length > 40 ? meta.source.substring(0, 40) + '...' : meta.source}</a></span>`;
+                    mh += `<span class="meta-item"><iconify-icon icon="ph:file-text-bold"></iconify-icon> ${data.filename}</span>`;
+                    document.getElementById('articleMeta').innerHTML = mh;
+                    document.getElementById('articleBody').innerHTML = extractBody(data.content);
 
-                    // Navigation
                     prevArticle = data.prev_article;
                     nextArticle = data.next_article;
+                    chapterList = data.chapter_list || [];
                     setupNav();
+                    renderToc(chapterList, data.filename);
 
-                    // Show article, hide loading
                     document.getElementById('loadingState').style.display = 'none';
                     document.getElementById('articleWrap').style.display = 'block';
-
-                    // Scroll to top
                     window.scrollTo({ top: 0 });
                     updateProgress();
-
-                    // Restore font size preference
-                    const savedSize = localStorage.getItem('reader-font-size') || 'medium';
-                    setFontSize(savedSize);
-
-                } catch (e) {
-                    showError('网络请求失败: ' + e.message);
-                }
+                    applyPrefs();
+                } catch (e) { showError('网络请求失败: ' + e.message); }
             }
 
             function showError(msg) {
@@ -651,68 +1062,49 @@
             }
 
             function setupNav() {
-                const prevBtn = document.getElementById('prevBtn');
-                const nextBtn = document.getElementById('nextBtn');
-
+                const pb = document.getElementById('prevBtn'), nb = document.getElementById('nextBtn');
+                const ptb = document.getElementById('prevToolbarBtn'), ntb = document.getElementById('nextToolbarBtn');
                 if (prevArticle) {
-                    prevBtn.classList.remove('disabled');
-                    prevBtn.href = '/article/' + prevArticle;
-                    prevBtn.onclick = function (e) {
-                        e.preventDefault();
-                        navigateTo(prevArticle);
-                    };
+                    pb.classList.remove('disabled'); pb.href = '/article/' + prevArticle;
+                    pb.onclick = function (e) { e.preventDefault(); navigateTo(prevArticle) };
+                    ptb.disabled = false;
                 } else {
-                    prevBtn.classList.add('disabled');
-                    prevBtn.removeAttribute('href');
-                    prevBtn.onclick = null;
+                    pb.classList.add('disabled'); pb.removeAttribute('href'); pb.onclick = null;
+                    ptb.disabled = true;
                 }
-
                 if (nextArticle) {
-                    nextBtn.classList.remove('disabled');
-                    nextBtn.href = '/article/' + nextArticle;
-                    nextBtn.onclick = function (e) {
-                        e.preventDefault();
-                        navigateTo(nextArticle);
-                    };
+                    nb.classList.remove('disabled'); nb.href = '/article/' + nextArticle;
+                    nb.onclick = function (e) { e.preventDefault(); navigateTo(nextArticle) };
+                    ntb.disabled = false;
                 } else {
-                    nextBtn.classList.add('disabled');
-                    nextBtn.removeAttribute('href');
-                    nextBtn.onclick = null;
+                    nb.classList.add('disabled'); nb.removeAttribute('href'); nb.onclick = null;
+                    ntb.disabled = true;
                 }
             }
+            window.navPrev = function () { if (prevArticle) navigateTo(prevArticle); };
+            window.navNext = function () { if (nextArticle) navigateTo(nextArticle); };
 
-            function navigateTo(filePath) {
-                history.pushState(null, '', '/article/' + filePath);
-                loadArticle(filePath);
+            function navigateTo(fp) {
+                history.pushState(null, '', '/article/' + fp);
+                loadArticle(fp);
             }
+            window.addEventListener('popstate', function () { const fp = getFilePath(); if (fp) loadArticle(fp); });
 
-            // Handle browser back/forward
-            window.addEventListener('popstate', function () {
-                const fp = getFilePath();
-                if (fp) loadArticle(fp);
-            });
-
-            // ========== Keyboard Shortcuts ==========
+            // ========== Keyboard ==========
             document.addEventListener('keydown', function (e) {
-                // Ignore if user is typing in an input
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-                if (e.key === 'ArrowLeft' && prevArticle) {
-                    e.preventDefault();
-                    navigateTo(prevArticle);
-                } else if (e.key === 'ArrowRight' && nextArticle) {
-                    e.preventDefault();
-                    navigateTo(nextArticle);
+                if (e.key === 'ArrowLeft' && prevArticle) { e.preventDefault(); navigateTo(prevArticle) }
+                else if (e.key === 'ArrowRight' && nextArticle) { e.preventDefault(); navigateTo(nextArticle) }
+                else if (e.key === 'Escape') {
+                    if (document.getElementById('tocDrawer').classList.contains('open')) toggleToc();
+                    if (document.getElementById('settingsPanel').classList.contains('open')) toggleSettings();
                 }
             });
 
             // ========== Init ==========
+            loadPrefs();
             const fp = getFilePath();
-            if (fp) {
-                loadArticle(fp);
-            } else {
-                showError('未指定文章路径');
-            }
+            if (fp) loadArticle(fp); else showError('未指定文章路径');
         })();
     </script>
 </body>

@@ -506,7 +506,9 @@ def get_article_content(filename):
             'content': content,
             'file_type': file_type,
             'prev_article': prev_article,
-            'next_article': next_article
+            'next_article': next_article,
+            'chapter_list': sorted_files,
+            'current_index': current_index
         })
     except Exception as e:
         return jsonify({

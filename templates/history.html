@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -151,11 +152,23 @@
             box-shadow: 2px 2px 0 var(--border-color);
         }
 
-        .btn-view { background-color: #e0e0e0; }
-        .btn-view:hover { background-color: #ccc; }
-        
-        .btn-delete { background-color: var(--main-accent); color: white; }
-        .btn-delete:hover { background-color: #cc0000; color: white; }
+        .btn-view {
+            background-color: #e0e0e0;
+        }
+
+        .btn-view:hover {
+            background-color: #ccc;
+        }
+
+        .btn-delete {
+            background-color: var(--main-accent);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background-color: #cc0000;
+            color: white;
+        }
 
         .empty-state {
             text-align: center;
@@ -169,27 +182,38 @@
         }
 
         @media (max-width: 768px) {
-            .item-header { flex-direction: column; }
-            .actions { width: 100%; }
-            .actions .btn { flex: 1; justify-content: center; }
+            .item-header {
+                flex-direction: column;
+            }
+
+            .actions {
+                width: 100%;
+            }
+
+            .actions .btn {
+                flex: 1;
+                justify-content: center;
+            }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
-        
+
         <div class="page-header">
             <h1 class="page-title"><iconify-icon icon="ph:archive-box-bold"></iconify-icon> 战绩仓库</h1>
             <a href="/" class="btn">
                 <iconify-icon icon="ph:house-bold"></iconify-icon> 返回干活
             </a>
         </div>
-        
+
         <div id="loading" class="empty-state">
-            <iconify-icon icon="ph:spinner-bold" class="rotate-icon" width="60" style="display:block; margin: 0 auto 1rem;"></iconify-icon>
+            <iconify-icon icon="ph:spinner-bold" class="rotate-icon" width="60"
+                style="display:block; margin: 0 auto 1rem;"></iconify-icon>
             正在回想之前干了啥...
         </div>
-        
+
         <div id="empty-state" class="empty-state" style="display: none;">
             <iconify-icon icon="ph:ghost-bold" width="60" style="display:block; margin: 0 auto 1rem;"></iconify-icon>
             干干净净，啥战利品也没有，赶紧去抓点啥吧！
@@ -197,34 +221,35 @@
                 <iconify-icon icon="ph:rocket-launch-bold"></iconify-icon> 去抓点东西
             </a>
         </div>
-        
+
         <div id="history-list" style="display: none;">
             <div class="mb-4 font-monospace fw-bold fs-5">
-                <iconify-icon icon="ph:list-bullets-bold"></iconify-icon> 共找到 <span id="total-count" class="badge bg-dark text-white rounded-0 px-2 py-1">0</span> 票买卖
+                <iconify-icon icon="ph:list-bullets-bold"></iconify-icon> 共找到 <span id="total-count"
+                    class="badge bg-dark text-white rounded-0 px-2 py-1">0</span> 票买卖
             </div>
             <div class="brutal-list" id="tasks-container"></div>
         </div>
-        
+
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', fetchHistory);
-        
+
         function fetchHistory() {
             fetch('/api/history')
                 .then(response => response.json())
                 .then(data => {
                     const history = data.history;
                     document.getElementById('loading').style.display = 'none';
-                    
+
                     if (!history || history.length === 0) {
                         document.getElementById('empty-state').style.display = 'block';
                     } else {
                         document.getElementById('history-list').style.display = 'block';
                         document.getElementById('total-count').textContent = history.length;
-                        
+
                         history.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
-                        
+
                         let html = '';
                         history.forEach(task => {
                             let statusBadge = '';
@@ -235,7 +260,7 @@
                             } else {
                                 statusBadge = '<span class="badge-brutal bg-secondary">未知</span>';
                             }
-                            
+
                             let fileListHtml = '';
                             if (task.output_files && task.output_files.length > 0) {
                                 fileListHtml = `<div class="mt-3 py-2 px-3 bg-light border border-dark border-3" style="font-family: monospace;">`;
@@ -244,17 +269,22 @@
                                     fileListHtml += `
                                         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2 border-bottom border-dark border-1 pb-1">
                                             <span>${file}</span>
-                                            <div>
+                                            <div class="d-flex gap-2">
                                                 <a href="/download/${task.output_dir}/${file}" class="btn btn-sm py-0 px-2 fs-6">
                                                     下载
+                                                </a>
+                                                <a href="/article/${task.output_dir}/${file}" class="btn btn-sm py-0 px-2 fs-6" style="background:#ff4d4d;color:white;">
+                                                    阅读
                                                 </a>
                                             </div>
                                         </div>
                                     `;
                                 });
+                                // Add a "继续阅读" button for the first file
+                                fileListHtml += `<div class="mt-2 text-end"><a href="/article/${task.output_dir}/${task.output_files[0]}" class="btn btn-sm py-1 px-3" style="background:#ff4d4d;color:white;border:3px solid #1a1a1a;box-shadow:3px 3px 0 #1a1a1a;font-weight:800;font-family:monospace;">📖 继续阅读</a></div>`;
                                 fileListHtml += `</div>`;
                             }
-                            
+
                             html += `
                                 <div class="brutal-item file-item">
                                     <div class="item-header pb-2 border-bottom border-dark border-3">
@@ -283,7 +313,7 @@
                                 </div>
                             `;
                         });
-                        
+
                         document.getElementById('tasks-container').innerHTML = html;
                     }
                 })
@@ -298,4 +328,5 @@
         }
     </script>
 </body>
+
 </html>
