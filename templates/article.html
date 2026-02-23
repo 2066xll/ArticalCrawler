@@ -31,6 +31,18 @@
             --toc-active: #fff3cd;
         }
 
+        [data-theme="pure-white"] {
+            --bg-color: #ffffff;
+            --card-bg: #ffffff;
+            --text-color: #000000;
+            --text-muted: #666666;
+            --border-color: #000000;
+            --meta-bg: #f0f0f0;
+            --panel-bg: #ffffff;
+            --toc-active: #f0f0f0;
+            --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+        }
+
         [data-theme="warm"] {
             --bg-color: #f5ecd7;
             --card-bg: #f5ecd7;
@@ -374,6 +386,11 @@
             font-size: 1.2rem
         }
 
+        .swatch[data-theme="pure-white"] {
+            background: #ffffff;
+            color: #000000
+        }
+
         .swatch[data-theme="light"] {
             background: #fffdf7;
             color: #2a2a2a
@@ -550,6 +567,15 @@
             box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
             margin-bottom: 2rem;
             transition: background .3s;
+        }
+
+        .article-header.no-border,
+        .article-body.no-border {
+            border: none;
+            box-shadow: none;
+            background: transparent;
+            padding-left: 0;
+            padding-right: 0;
         }
 
         .article-body p {
@@ -768,6 +794,7 @@
         <div class="settings-section">
             <div class="settings-label"><iconify-icon icon="ph:palette-bold"></iconify-icon> 主题配色</div>
             <div class="theme-swatches">
+                <div class="swatch" data-theme="pure-white" onclick="setTheme('pure-white')" title="纯白"></div>
                 <div class="swatch" data-theme="light" onclick="setTheme('light')" title="纸白"></div>
                 <div class="swatch" data-theme="warm" onclick="setTheme('warm')" title="暖黄"></div>
                 <div class="swatch" data-theme="green" onclick="setTheme('green')" title="护眼绿"></div>
@@ -819,6 +846,16 @@
                 <label class="toggle-switch"><input type="checkbox" id="toggleToolbar" checked
                         onchange="toggleElement('toolbar')"><span class="toggle-track"></span></label>
             </div>
+            <div class="toggle-row">
+                <span class="toggle-label">显示外框</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleBorders" checked
+                        onchange="toggleElement('borders')"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">回到顶部按钮</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleBackToTop" checked
+                        onchange="toggleElement('backToTop')"><span class="toggle-track"></span></label>
+            </div>
         </div>
     </div>
 
@@ -860,7 +897,7 @@
 
             // ========== Preferences ==========
             const PREFS_KEY = 'reader-prefs';
-            const defaults = { theme: 'light', fontSize: 18, spacing: '2.0', showProgress: true, showMeta: true, showNav: true, showToolbar: true };
+            const defaults = { theme: 'light', fontSize: 18, spacing: '2.0', showProgress: true, showMeta: true, showNav: true, showToolbar: true, showBorders: true, showBackToTop: true };
             let prefs = Object.assign({}, defaults);
 
             function loadPrefs() {
@@ -903,16 +940,25 @@
                     progress: { pref: 'showProgress', target: 'readingProgress', toggle: 'toggleProgress' },
                     meta: { pref: 'showMeta', target: 'articleHeader', toggle: 'toggleMeta' },
                     nav: { pref: 'showNav', target: 'chapterNav', toggle: 'toggleNav' },
-                    toolbar: { pref: 'showToolbar', target: 'toolbar', toggle: 'toggleToolbar' }
+                    toolbar: { pref: 'showToolbar', target: 'toolbar', toggle: 'toggleToolbar' },
+                    borders: { pref: 'showBorders', target: null, toggle: 'toggleBorders' },
+                    backToTop: { pref: 'showBackToTop', target: 'backToTop', toggle: 'toggleBackToTop' }
                 };
                 const m = map[el]; if (!m) return;
                 const cb = document.getElementById(m.toggle);
                 prefs[m.pref] = cb.checked;
-                const target = document.getElementById(m.target);
+
                 if (el === 'toolbar') {
+                    const target = document.getElementById(m.target);
                     target.classList.toggle('hidden', !cb.checked);
                     document.getElementById('toolbarReveal').classList.toggle('active', !cb.checked);
+                } else if (el === 'borders') {
+                    document.getElementById('articleHeader').classList.toggle('no-border', !cb.checked);
+                    document.getElementById('articleBody').classList.toggle('no-border', !cb.checked);
+                } else if (el === 'backToTop') {
+                    document.getElementById('backToTop').style.display = cb.checked ? '' : 'none';
                 } else {
+                    const target = document.getElementById(m.target);
                     target.style.display = cb.checked ? '' : 'none';
                 }
                 savePrefs();
@@ -927,6 +973,9 @@
                 document.getElementById('toggleMeta').checked = prefs.showMeta;
                 document.getElementById('toggleNav').checked = prefs.showNav;
                 document.getElementById('toggleToolbar').checked = prefs.showToolbar;
+                document.getElementById('toggleBorders').checked = prefs.showBorders;
+                document.getElementById('toggleBackToTop').checked = prefs.showBackToTop;
+
                 if (!prefs.showProgress) document.getElementById('readingProgress').style.display = 'none';
                 if (!prefs.showMeta) document.getElementById('articleHeader').style.display = 'none';
                 if (!prefs.showNav) document.getElementById('chapterNav').style.display = 'none';
@@ -934,6 +983,11 @@
                     document.getElementById('toolbar').classList.add('hidden');
                     document.getElementById('toolbarReveal').classList.add('active');
                 }
+                if (!prefs.showBorders) {
+                    document.getElementById('articleHeader').classList.add('no-border');
+                    document.getElementById('articleBody').classList.add('no-border');
+                }
+                if (!prefs.showBackToTop) document.getElementById('backToTop').style.display = 'none';
             }
 
             // ========== TOC ==========
