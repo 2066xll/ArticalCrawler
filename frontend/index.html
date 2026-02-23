@@ -413,8 +413,17 @@
                     return;
                 }
                 
-                statusMessage.innerHTML = `<iconify-icon icon="ph:engine-bold"></iconify-icon> 任务编号: ${data.task_id}，正在狂奔...`;
-                pollTaskStatus(data.task_id);
+                const taskId = data.task_ids && data.task_ids.length > 0 ? data.task_ids[0] : null;
+                
+                if (!taskId) {
+                    statusMessage.className = 'status-message alert-danger';
+                    statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: 未获取到任务 ID`;
+                    progressBar.style.display = 'none';
+                    return;
+                }
+                
+                statusMessage.innerHTML = `<iconify-icon icon="ph:engine-bold"></iconify-icon> 任务编号: ${taskId}，正在狂奔...`;
+                pollTaskStatus(taskId);
             })
             .catch(error => {
                 statusMessage.className = 'status-message alert-danger';
