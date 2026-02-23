@@ -1,244 +1,720 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文章内容 - 文章抓取</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>阅读中... - 文章抓取</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap" rel="stylesheet">
     <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
     <style>
+        /* ========== CSS Variables ========== */
         :root {
-            --bg-color: #f0f0f0;
-            --main-accent: #ff4d4d;
+            /* Light mode (default) */
+            --bg-color: #f5f0e8;
+            --bg-noise-opacity: 0.06;
+            --card-bg: #fffdf7;
+            --text-color: #2a2a2a;
+            --text-muted: #777;
             --border-color: #1a1a1a;
-            --card-bg: #ffffff;
-            --text-color: #1a1a1a;
-            --shadow-offset: 6px;
+            --accent: #ff4d4d;
+            --accent-hover: #ff3333;
+            --btn-bg: #ffd700;
+            --btn-bg-hover: #ffcc00;
+            --shadow-offset: 5px;
+            --meta-bg: #e8e4dc;
+            --progress-bg: rgba(0, 0, 0, 0.08);
+            --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a2e;
+            --bg-noise-opacity: 0.04;
+            --card-bg: #16213e;
+            --text-color: #e0d8c8;
+            --text-muted: #8a8a9a;
+            --border-color: #e0d8c8;
+            --accent: #ff6b6b;
+            --accent-hover: #ff5252;
+            --btn-bg: #e6c300;
+            --btn-bg-hover: #d4b300;
+            --meta-bg: #0f3460;
+            --progress-bg: rgba(255, 255, 255, 0.08);
+            --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+        }
+
+        /* ========== Globals ========== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scrollbar-color: var(--scrollbar-thumb) transparent;
         }
 
         body {
             background-color: var(--bg-color);
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
             color: var(--text-color);
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Noto Serif SC', 'Songti SC', 'STSong', Georgia, serif;
             min-height: 100vh;
-            padding: 2rem 1rem;
+            padding: 0;
             margin: 0;
-            line-height: 1.8;
+            transition: background-color 0.3s, color 0.3s;
         }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
+        /* ========== Reading Progress Bar ========== */
+        .reading-progress {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent), var(--btn-bg));
+            z-index: 1000;
+            transition: width 0.1s linear;
         }
 
-        /* 导航条 */
-        .brutal-nav {
+        /* ========== Top Toolbar ========== */
+        .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--card-bg);
+            border-bottom: 3px solid var(--border-color);
+            padding: 0.6rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 4px solid var(--border-color);
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            transition: background 0.3s;
         }
 
-        /* 按钮重置 */
+        .toolbar-left,
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* ========== Buttons ========== */
         .btn {
             border: 3px solid var(--border-color);
             border-radius: 0;
             font-weight: 800;
-            text-transform: uppercase;
-            padding: 0.6rem 1.2rem;
+            padding: 0.4rem 0.8rem;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            box-shadow: 4px 4px 0 var(--border-color);
+            gap: 0.4rem;
+            box-shadow: 3px 3px 0 var(--border-color);
             transition: all 0.1s;
-            background-color: #ffd700;
+            background-color: var(--btn-bg);
             color: var(--text-color);
             text-decoration: none;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            white-space: nowrap;
         }
 
         .btn:hover {
             transform: translate(-2px, -2px);
-            box-shadow: 6px 6px 0 var(--border-color);
-            background-color: #ffcc00;
+            box-shadow: 5px 5px 0 var(--border-color);
+            background-color: var(--btn-bg-hover);
             color: var(--text-color);
             text-decoration: none;
         }
 
         .btn:active {
             transform: translate(2px, 2px);
-            box-shadow: 2px 2px 0 var(--border-color);
+            box-shadow: 1px 1px 0 var(--border-color);
         }
 
-        .btn-outline-secondary {
-            background-color: #fff;
+        .btn-ghost {
+            background: transparent;
+            box-shadow: none;
+            border: 2px solid var(--border-color);
+            padding: 0.35rem 0.6rem;
         }
 
-        .btn-outline-secondary:hover {
-            background-color: #f8f8f8;
+        .btn-ghost:hover {
+            background: var(--meta-bg);
+            box-shadow: none;
         }
 
-        /* 页面标题 */
+        .btn-nav {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .btn-nav:hover {
+            background-color: var(--accent-hover);
+            color: white;
+        }
+
+        .btn-nav.disabled {
+            background: var(--meta-bg);
+            color: var(--text-muted);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+            pointer-events: none;
+        }
+
+        /* Font size control */
+        .font-control {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            border: 2px solid var(--border-color);
+        }
+
+        .font-control button {
+            background: transparent;
+            border: none;
+            border-right: 2px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 0.3rem 0.55rem;
+            font-size: 0.9rem;
+            font-weight: bold;
+            transition: background 0.15s;
+        }
+
+        .font-control button:last-child {
+            border-right: none;
+        }
+
+        .font-control button:hover {
+            background: var(--meta-bg);
+        }
+
+        .font-control button.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        /* ========== Main Content Area ========== */
+        .reader-wrap {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+
+        /* Article header */
         .article-header {
-            margin-bottom: 2rem;
             background: var(--card-bg);
             border: 4px solid var(--border-color);
-            padding: 2rem;
+            padding: 2rem 2rem 1.5rem;
             box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+            margin-bottom: 1.5rem;
+            transition: background 0.3s;
         }
 
         .article-title {
             font-weight: 900;
-            font-size: 2.5rem;
+            font-size: 1.8rem;
             margin: 0 0 1rem 0;
-            letter-spacing: -1px;
-            text-transform: uppercase;
+            line-height: 1.4;
         }
 
         .article-meta {
             display: flex;
             flex-wrap: wrap;
-            gap: 1rem;
-            font-weight: bold;
-            font-size: 0.9rem;
-            color: #555;
-            background: #e0e0e0;
-            padding: 0.5rem 1rem;
-            border: 2px solid var(--border-color);
-            display: inline-flex;
+            gap: 0.8rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
         }
 
-        /* 文章内容 */
-        .article-content {
+        .meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: var(--meta-bg);
+            padding: 0.25rem 0.6rem;
+            border: 2px solid var(--border-color);
+            font-family: 'Courier New', monospace;
+            transition: background 0.3s;
+        }
+
+        /* Article body */
+        .article-body {
             background: var(--card-bg);
             border: 4px solid var(--border-color);
-            padding: 2rem;
+            padding: 2.5rem 2rem;
             box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
             margin-bottom: 2rem;
-            font-size: 1.1rem;
+            transition: background 0.3s;
         }
 
-        .article-content p {
-            margin-bottom: 1.5em;
+        /* Font size variants */
+        .article-body.fs-small {
+            font-size: 1rem;
+            line-height: 2;
         }
 
-        .article-content img {
-            max-width: 100%;
-            height: auto;
-            border: 3px solid var(--border-color);
-            display: block;
-            margin: 2rem auto;
-            box-shadow: 4px 4px 0 var(--border-color);
+        .article-body.fs-medium {
+            font-size: 1.15rem;
+            line-height: 2.1;
         }
 
-        /* 章节导航 */
+        .article-body.fs-large {
+            font-size: 1.35rem;
+            line-height: 2.2;
+        }
+
+        .article-body p {
+            margin-bottom: 1.2em;
+            text-indent: 2em;
+            text-align: justify;
+            letter-spacing: 0.02em;
+        }
+
+        .article-body p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* ========== Chapter Navigation ========== */
         .chapter-nav {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
             gap: 1rem;
-            margin-top: 3rem;
-            padding-top: 2rem;
-            border-top: 4px dashed var(--border-color);
-            flex-wrap: wrap;
+            align-items: stretch;
         }
 
-        .chapter-btn {
-            background-color: var(--main-accent);
-            color: white;
+        .chapter-nav .btn-nav {
             flex: 1;
-            min-width: 200px;
             justify-content: center;
+            padding: 0.8rem 1rem;
+            font-size: 0.95rem;
         }
 
-        .chapter-btn:hover {
-            background-color: #ff3333;
-            color: white;
-            text-decoration: none;
-        }
-
-        .chapter-btn.disabled {
-            background-color: #ccc;
-            color: #666;
-            box-shadow: none;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .nav-center {
-            text-align: center;
-            font-weight: bold;
-            background: #1a1a1a;
-            color: #00ff00;
-            padding: 0.5rem 1rem;
+        /* ========== Back-to-top ========== */
+        .back-to-top {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 48px;
+            height: 48px;
+            background: var(--btn-bg);
             border: 3px solid var(--border-color);
-            flex: 0 1 auto;
+            box-shadow: 3px 3px 0 var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+            z-index: 50;
         }
-        
-        @media (max-width: 768px) {
-            .chapter-nav { flex-direction: column; }
-            .chapter-btn { width: 100%; }
+
+        .back-to-top.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        .back-to-top:hover {
+            transform: translateY(-3px);
+            box-shadow: 5px 5px 0 var(--border-color);
+        }
+
+        /* ========== Loading & Error States ========== */
+        .loading-state,
+        .error-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: var(--card-bg);
+            border: 4px solid var(--border-color);
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 5px solid var(--meta-bg);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-state iconify-icon {
+            font-size: 2rem;
+            color: var(--accent);
+        }
+
+        /* ========== Keyboard hint tooltip ========== */
+        .kbd {
+            display: inline-block;
+            padding: 0.1rem 0.4rem;
+            font-size: 0.7rem;
+            font-family: 'Courier New', monospace;
+            background: var(--meta-bg);
+            border: 2px solid var(--border-color);
+            margin-left: 0.3rem;
+            vertical-align: middle;
+        }
+
+        /* ========== Responsive ========== */
+        @media (max-width: 640px) {
+            .reader-wrap {
+                padding: 1rem 0.8rem 3rem;
+            }
+
+            .article-header {
+                padding: 1.2rem;
+            }
+
+            .article-body {
+                padding: 1.5rem 1.2rem;
+            }
+
+            .article-title {
+                font-size: 1.4rem;
+            }
+
+            .chapter-nav {
+                flex-direction: column;
+            }
+
+            .toolbar {
+                padding: 0.5rem 0.8rem;
+            }
+
+            .btn {
+                font-size: 0.78rem;
+                padding: 0.35rem 0.6rem;
+            }
+
+            .kbd {
+                display: none;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        
-        <div class="brutal-nav">
+    <!-- Reading progress -->
+    <div class="reading-progress" id="readingProgress"></div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="toolbar-left">
             <a href="/" class="btn">
-                <iconify-icon icon="ph:house-bold"></iconify-icon> 溜回首页
+                <iconify-icon icon="ph:house-bold"></iconify-icon> 首页
             </a>
-            <a href="/history" class="btn btn-outline-secondary">
-                <iconify-icon icon="ph:clock-counter-clockwise-bold"></iconify-icon> 翻翻旧账
+            <a href="/history" class="btn btn-ghost">
+                <iconify-icon icon="ph:clock-counter-clockwise-bold"></iconify-icon> 历史
             </a>
         </div>
-        
-        <div class="article-header">
-            <h1 class="article-title">文章内容</h1>
-            <div class="article-meta">
-                
-                <span class="meta-item"><iconify-icon icon="ph:user-bold"></iconify-icon> 码字工: {{ metadata.author }}</span>
-                {% endif %}
-                {% if metadata.date %}
-                <span class="meta-item"><iconify-icon icon="ph:calendar-blank-bold"></iconify-icon> 时间: {{ metadata.date }}</span>
-                {% endif %}
-                <span class="meta-item"><iconify-icon icon="ph:folder-bold"></iconify-icon> 藏书阁: {{ output_dir }}</span>
+        <div class="toolbar-right">
+            <!-- Font size -->
+            <div class="font-control" title="字号">
+                <button onclick="setFontSize('small')" id="fs-small">A<sup>-</sup></button>
+                <button onclick="setFontSize('medium')" id="fs-medium" class="active">A</button>
+                <button onclick="setFontSize('large')" id="fs-large">A<sup>+</sup></button>
             </div>
-        </div>
-        
-        <div class="article-content">
-            {{ content | safe if content else '文章内容全碎了...' }}
-        </div>
-        
-        <div class="chapter-nav">
-            {% if prev_url %}
-            <a href="/crawl_and_view?url={{ prev_url }}&format={{ format }}&output_dir={{ output_dir }}" class="btn chapter-btn">
-                <iconify-icon icon="ph:arrow-fat-left-bold"></iconify-icon> 上一章，冲冲冲
-            </a>
-            {% else %}
-            <button class="btn chapter-btn disabled" disabled>
-                <iconify-icon icon="ph:x-circle-bold"></iconify-icon> 到头了，没拉
+            <!-- Theme toggle -->
+            <button class="btn btn-ghost" onclick="toggleTheme()" id="themeToggle" title="切换深色/浅色模式">
+                <iconify-icon icon="ph:moon-bold" id="themeIcon"></iconify-icon>
             </button>
-            {% endif %}
-            
-            <div class="nav-center">
-                <iconify-icon icon="ph:book-open-text-bold"></iconify-icon> 当前阅读
-            </div>
-            
-            {% if next_url %}
-            <a href="/crawl_and_view?url={{ next_url }}&format={{ format }}&output_dir={{ output_dir }}" class="btn chapter-btn">
-                <iconify-icon icon="ph:arrow-fat-right-bold"></iconify-icon> 下一章，走起
-            </a>
-            {% else %}
-            <button class="btn chapter-btn disabled" disabled>
-                <iconify-icon icon="ph:x-circle-bold"></iconify-icon> 后面啥也没有
-            </button>
-            {% endif %}
         </div>
-        
     </div>
+
+    <!-- Main reader area -->
+    <div class="reader-wrap">
+        <!-- Loading state -->
+        <div id="loadingState" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p style="margin-top:1rem; font-weight:bold;">正在加载文章...</p>
+        </div>
+
+        <!-- Error state (hidden by default) -->
+        <div id="errorState" class="error-state" style="display:none;">
+            <iconify-icon icon="ph:warning-circle-bold"></iconify-icon>
+            <p id="errorMessage" style="margin-top:1rem; font-weight:bold;"></p>
+            <a href="/" class="btn" style="margin-top:1rem;">
+                <iconify-icon icon="ph:house-bold"></iconify-icon> 回首页
+            </a>
+        </div>
+
+        <!-- Article (hidden until loaded) -->
+        <div id="articleWrap" style="display:none;">
+            <div class="article-header">
+                <h1 class="article-title" id="articleTitle"></h1>
+                <div class="article-meta" id="articleMeta"></div>
+            </div>
+
+            <div class="article-body fs-medium" id="articleBody"></div>
+
+            <!-- Bottom chapter navigation -->
+            <div class="chapter-nav">
+                <a class="btn btn-nav disabled" id="prevBtn">
+                    <iconify-icon icon="ph:arrow-left-bold"></iconify-icon> 上一章 <span class="kbd">←</span>
+                </a>
+                <a class="btn btn-nav disabled" id="nextBtn">
+                    下一章 <iconify-icon icon="ph:arrow-right-bold"></iconify-icon> <span class="kbd">→</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back-to-top -->
+    <div class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0})">
+        <iconify-icon icon="ph:arrow-up-bold" style="font-size:1.3rem;"></iconify-icon>
+    </div>
+
+    <script>
+        (function () {
+            // ========== State ==========
+            let currentFilePath = '';
+            let prevArticle = null;
+            let nextArticle = null;
+
+            // ========== Theme ==========
+            function applyTheme(theme) {
+                document.documentElement.setAttribute('data-theme', theme);
+                const icon = document.getElementById('themeIcon');
+                icon.setAttribute('icon', theme === 'dark' ? 'ph:sun-bold' : 'ph:moon-bold');
+                localStorage.setItem('reader-theme', theme);
+            }
+
+            window.toggleTheme = function () {
+                const current = document.documentElement.getAttribute('data-theme');
+                applyTheme(current === 'dark' ? 'light' : 'dark');
+            };
+
+            // Init theme
+            const savedTheme = localStorage.getItem('reader-theme') || 'light';
+            applyTheme(savedTheme);
+
+            // ========== Font Size ==========
+            window.setFontSize = function (size) {
+                const body = document.getElementById('articleBody');
+                body.className = 'article-body fs-' + size;
+                document.querySelectorAll('.font-control button').forEach(b => b.classList.remove('active'));
+                document.getElementById('fs-' + size).classList.add('active');
+                localStorage.setItem('reader-font-size', size);
+            };
+
+            // ========== Reading Progress ==========
+            function updateProgress() {
+                const winH = window.innerHeight;
+                const docH = document.documentElement.scrollHeight;
+                const scrolled = window.scrollY;
+                const pct = Math.min(100, (scrolled / (docH - winH)) * 100);
+                document.getElementById('readingProgress').style.width = pct + '%';
+
+                // Back-to-top visibility
+                const btn = document.getElementById('backToTop');
+                if (scrolled > winH * 0.5) {
+                    btn.classList.add('visible');
+                } else {
+                    btn.classList.remove('visible');
+                }
+            }
+            window.addEventListener('scroll', updateProgress, { passive: true });
+
+            // ========== Load Article ==========
+            function getFilePath() {
+                // URL: /article/output/0357_xxx.txt → filePath = output/0357_xxx.txt
+                const path = decodeURIComponent(window.location.pathname);
+                const prefix = '/article/';
+                if (path.startsWith(prefix)) {
+                    return path.substring(prefix.length);
+                }
+                return '';
+            }
+
+            function parseTitle(content) {
+                // Extract the first line as the title
+                const lines = content.split('\n');
+                return lines[0] || '未知标题';
+            }
+
+            function parseMetadata(content) {
+                // Extract metadata from the header section (lines 2-5 typically)
+                const lines = content.split('\n');
+                const meta = {};
+                for (let i = 1; i < Math.min(lines.length, 8); i++) {
+                    const line = lines[i].trim();
+                    if (line.startsWith('作者:') || line.startsWith('作者：')) {
+                        meta.author = line.replace(/^作者[:：]\s*/, '');
+                    } else if (line.startsWith('原文链接:') || line.startsWith('原文链接：')) {
+                        meta.source = line.replace(/^原文链接[:：]\s*/, '');
+                    } else if (line.startsWith('发布时间:') || line.startsWith('发布时间：')) {
+                        meta.date = line.replace(/^发布时间[:：]\s*/, '');
+                    }
+                }
+                return meta;
+            }
+
+            function extractBody(content) {
+                // Find the separator line (=====) and return everything after it
+                const sepIndex = content.indexOf('==================================================');
+                let body;
+                if (sepIndex !== -1) {
+                    body = content.substring(sepIndex + 50).trim();
+                } else {
+                    // No separator, skip the first few metadata lines
+                    const lines = content.split('\n');
+                    const startLine = Math.min(5, lines.length);
+                    body = lines.slice(startLine).join('\n').trim();
+                }
+                // Convert to paragraphs
+                return body
+                    .split(/\n\s*\n/)
+                    .filter(p => p.trim())
+                    .map(p => '<p>' + p.replace(/\n/g, '<br>') + '</p>')
+                    .join('\n');
+            }
+
+            async function loadArticle(filePath) {
+                currentFilePath = filePath;
+
+                document.getElementById('loadingState').style.display = 'block';
+                document.getElementById('errorState').style.display = 'none';
+                document.getElementById('articleWrap').style.display = 'none';
+
+                try {
+                    const resp = await fetch('/api/article/' + encodeURIComponent(filePath));
+                    const data = await resp.json();
+
+                    if (!data.success) {
+                        showError(data.error || '加载失败');
+                        return;
+                    }
+
+                    const content = data.content;
+                    const title = parseTitle(content);
+                    const meta = parseMetadata(content);
+                    const bodyHtml = extractBody(content);
+
+                    // Set page title
+                    document.title = title + ' - 阅读器';
+
+                    // Render header
+                    document.getElementById('articleTitle').textContent = title;
+                    let metaHtml = '';
+                    if (meta.author) {
+                        metaHtml += `<span class="meta-item"><iconify-icon icon="ph:user-bold"></iconify-icon> ${meta.author}</span>`;
+                    }
+                    if (meta.source) {
+                        metaHtml += `<span class="meta-item"><iconify-icon icon="ph:link-bold"></iconify-icon> <a href="${meta.source}" target="_blank" style="color:inherit;">${meta.source.length > 40 ? meta.source.substring(0, 40) + '...' : meta.source}</a></span>`;
+                    }
+                    metaHtml += `<span class="meta-item"><iconify-icon icon="ph:file-text-bold"></iconify-icon> ${data.filename}</span>`;
+                    document.getElementById('articleMeta').innerHTML = metaHtml;
+
+                    // Render body
+                    document.getElementById('articleBody').innerHTML = bodyHtml;
+
+                    // Navigation
+                    prevArticle = data.prev_article;
+                    nextArticle = data.next_article;
+                    setupNav();
+
+                    // Show article, hide loading
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('articleWrap').style.display = 'block';
+
+                    // Scroll to top
+                    window.scrollTo({ top: 0 });
+                    updateProgress();
+
+                    // Restore font size preference
+                    const savedSize = localStorage.getItem('reader-font-size') || 'medium';
+                    setFontSize(savedSize);
+
+                } catch (e) {
+                    showError('网络请求失败: ' + e.message);
+                }
+            }
+
+            function showError(msg) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+                document.getElementById('errorMessage').textContent = msg;
+            }
+
+            function setupNav() {
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+
+                if (prevArticle) {
+                    prevBtn.classList.remove('disabled');
+                    prevBtn.href = '/article/' + prevArticle;
+                    prevBtn.onclick = function (e) {
+                        e.preventDefault();
+                        navigateTo(prevArticle);
+                    };
+                } else {
+                    prevBtn.classList.add('disabled');
+                    prevBtn.removeAttribute('href');
+                    prevBtn.onclick = null;
+                }
+
+                if (nextArticle) {
+                    nextBtn.classList.remove('disabled');
+                    nextBtn.href = '/article/' + nextArticle;
+                    nextBtn.onclick = function (e) {
+                        e.preventDefault();
+                        navigateTo(nextArticle);
+                    };
+                } else {
+                    nextBtn.classList.add('disabled');
+                    nextBtn.removeAttribute('href');
+                    nextBtn.onclick = null;
+                }
+            }
+
+            function navigateTo(filePath) {
+                history.pushState(null, '', '/article/' + filePath);
+                loadArticle(filePath);
+            }
+
+            // Handle browser back/forward
+            window.addEventListener('popstate', function () {
+                const fp = getFilePath();
+                if (fp) loadArticle(fp);
+            });
+
+            // ========== Keyboard Shortcuts ==========
+            document.addEventListener('keydown', function (e) {
+                // Ignore if user is typing in an input
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                if (e.key === 'ArrowLeft' && prevArticle) {
+                    e.preventDefault();
+                    navigateTo(prevArticle);
+                } else if (e.key === 'ArrowRight' && nextArticle) {
+                    e.preventDefault();
+                    navigateTo(nextArticle);
+                }
+            });
+
+            // ========== Init ==========
+            const fp = getFilePath();
+            if (fp) {
+                loadArticle(fp);
+            } else {
+                showError('未指定文章路径');
+            }
+        })();
+    </script>
 </body>
+
 </html>

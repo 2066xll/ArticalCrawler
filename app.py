@@ -459,9 +459,15 @@ def get_article_content(filename):
         file_dir = os.path.dirname(filename)
         file_name = os.path.basename(filename)
         
-        # 获取当前目录下的所有文件
+        # 获取当前目录下的所有文章文件（排除隐藏文件和非文章文件）
+        article_extensions = {'.txt', '.md', '.html', '.htm'}
         if os.path.exists(file_dir):
-            all_files = [f for f in os.listdir(file_dir) if os.path.isfile(os.path.join(file_dir, f))]
+            all_files = [
+                f for f in os.listdir(file_dir)
+                if os.path.isfile(os.path.join(file_dir, f))
+                and not f.startswith('.')
+                and os.path.splitext(f)[1].lower() in article_extensions
+            ]
         else:
             all_files = []
         
