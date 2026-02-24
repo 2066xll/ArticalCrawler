@@ -2,22 +2,24 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import json
 import threading
 import time
 import uuid
 import re
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_from_directory, make_response
+from flask import Flask, render_template, request, jsonify, send_from_directory, make_response  # type: ignore[import]
 import subprocess
 
 # 添加缓存支持
 from functools import wraps
 import hashlib
+from typing import Any, Dict
 
 # 简单的内存缓存
-cache = {}
-cache_expiry = {}
+cache: Dict[str, Any] = {}
+cache_expiry: Dict[str, float] = {}
 
 # 缓存装饰器
 def cache_decorator(expiry=30):
@@ -50,9 +52,9 @@ def clear_cache(func_name):
         if func_name in key:
             keys_to_remove.append(key)
     for key in keys_to_remove:
-        del cache[key]
+        del cache[key]  # type: ignore[arg-type]
         if key in cache_expiry:
-            del cache_expiry[key]
+            del cache_expiry[key]  # type: ignore[arg-type]
 
 # API请求限制
 # 简单的IP请求限制，记录每个IP的请求次数
@@ -89,7 +91,19 @@ def rate_limit_decorator(func):
         return func(*args, **kwargs)
     return wrapper
 
-app = Flask(__name__)
+# PyInstaller 打包支持：检测运行环境
+if getattr(sys, 'frozen', False):
+    # 打包后：资源在 sys._MEIPASS 临时目录中
+    BASE_DIR = sys._MEIPASS  # type: ignore[attr-defined]
+else:
+    # 开发环境：资源在脚本所在目录
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, 'templates'),
+    static_folder=os.path.join(BASE_DIR, 'static'),
+)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 # 添加CORS支持
@@ -111,7 +125,8 @@ def handle_root_options():
     return make_response('', 204)
 
 # 配置静态文件目录
-app.static_folder = 'frontend'
+FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
+app.static_folder = FRONTEND_DIR
 app.static_url_path = '/static'
 
 # 任务状态存储
@@ -177,7 +192,13 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         # 构建命令
         # 直接使用用户输入的章节数量作为 -n 参数
         # article_crawler.py 现在将 -n 参数直接解释为总章节数（包括当前章节）
-        command = f'python3 article_crawler.py "{url}" -f {format} -o "{output_dir}" -n {next_chapters} -p {prev_chapters}'
+        crawler_script = os.path.join(BASE_DIR, 'article_crawler.py')
+        if getattr(sys, 'frozen', False):
+            # 打包后使用内嵌的 Python 解释器路径
+            python_exe = sys.executable
+        else:
+            python_exe = 'python3'
+        command = f'{python_exe} "{crawler_script}" "{url}" -f {format} -o "{output_dir}" -n {next_chapters} -p {prev_chapters}'
         tasks[task_id]['command'] = command
         # 保存任务状态
         save_tasks()
@@ -216,8 +237,8 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         tasks[task_id]['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         tasks[task_id]['return_code'] = result.returncode
         # 限制stdout和stderr的长度，防止JSON序列化问题
-        tasks[task_id]['stdout'] = result.stdout[:1000] if result.stdout else ''
-        tasks[task_id]['stderr'] = result.stderr[:1000] if result.stderr else ''
+        tasks[task_id]['stdout'] = str(result.stdout)[:1000] if result.stdout else ''  # type: ignore[index]
+        tasks[task_id]['stderr'] = str(result.stderr)[:1000] if result.stderr else ''  # type: ignore[index]
         tasks[task_id]['output_files'] = sorted_output_files
         tasks[task_id]['file_count'] = len(sorted_output_files)
         # 保存任务状态
@@ -264,32 +285,32 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
 # 首页路由
 @app.route('/')
 def index():
-    return send_from_directory('frontend', 'index.html')
+    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 # 首页路由（带.html后缀）
 @app.route('/index.html')
 def index_html():
-    return send_from_directory('frontend', 'index.html')
+    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 # 历史记录页面路由
 @app.route('/history')
 def history():
-    return send_from_directory('frontend', 'history.html')
+    return send_from_directory(FRONTEND_DIR, 'history.html')
 
 # 历史记录页面路由（带.html后缀）
 @app.route('/history.html')
 def history_html():
-    return send_from_directory('frontend', 'history.html')
+    return send_from_directory(FRONTEND_DIR, 'history.html')
 
 # 统计页面路由
 @app.route('/stats')
 def stats():
-    return send_from_directory('frontend', 'stats.html')
+    return send_from_directory(FRONTEND_DIR, 'stats.html')
 
 # 统计页面路由（带.html后缀）
 @app.route('/stats.html')
 def stats_html():
-    return send_from_directory('frontend', 'stats.html')
+    return send_from_directory(FRONTEND_DIR, 'stats.html')
 
 # 提交爬取任务
 @app.route('/api/crawl', methods=['POST'])
@@ -423,20 +444,20 @@ def view_file(filename):
 # 静态文件路由
 @app.route('/css/<path:filename>')
 def static_css(filename):
-    return send_from_directory('frontend/css', filename)
+    return send_from_directory(os.path.join(FRONTEND_DIR, 'css'), filename)
 
 @app.route('/js/<path:filename>')
 def static_js(filename):
-    return send_from_directory('frontend/js', filename)
+    return send_from_directory(os.path.join(FRONTEND_DIR, 'js'), filename)
 
 @app.route('/images/<path:filename>')
 def static_images(filename):
-    return send_from_directory('frontend/images', filename)
+    return send_from_directory(os.path.join(FRONTEND_DIR, 'images'), filename)
 
 # 文章展示页面 - 返回静态HTML
 @app.route('/article/<path:filename>')
 def article_view(filename):
-    return send_from_directory('frontend', 'article.html')
+    return send_from_directory(FRONTEND_DIR, 'article.html')
 
 # 获取文章内容的API
 @app.route('/api/article/<path:filename>', methods=['GET'])
@@ -453,7 +474,7 @@ def get_article_content(filename):
         
         # 获取文件扩展名
         _, ext = os.path.splitext(filename)
-        file_type = ext[1:].lower()  # 去掉点号，转为小写
+        file_type = str(ext)[1:].lower()  # type: ignore[index]  # 去掉点号，转为小写
         
         # 解析文件名，获取当前目录
         file_dir = os.path.dirname(filename)
