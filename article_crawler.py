@@ -1054,6 +1054,7 @@ def main():
                 # 检查是否已爬取（章节号或URL）
                 if chapter_num is not None and chapter_num in crawled_chapters:
                     logger.info(f"章节 {chapter_num} 已爬取，跳过")
+                    prev_chapters_fetched += 1  # 跳过也计数，防止无限循环
                     # 获取上一章链接继续爬取
                     if article['prev_chapter_url']:
                         logger.info(f"获取上一章链接: {article['prev_chapter_url']}")
@@ -1126,6 +1127,7 @@ def main():
                 # 检查是否已爬取（章节号或URL）
                 if chapter_num is not None and chapter_num in crawled_chapters:
                     logger.info(f"章节 {chapter_num} 已爬取，跳过")
+                    next_chapters_fetched += 1  # 跳过也计数，防止无限循环
                     # 获取下一章链接继续爬取
                     if article['next_chapter_url']:
                         logger.info(f"获取下一章链接: {article['next_chapter_url']}")
