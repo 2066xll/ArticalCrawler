@@ -516,7 +516,13 @@ def article_view(filename):
 def get_article_content(filename):
     try:
         # 完整文件路径
-        file_path = os.path.join(os.getcwd(), filename)
+        # Flask 路由会去掉路径参数开头的 /，所以绝对路径如 /Users/... 会变成 Users/...
+        if filename.startswith('Users/') or filename.startswith('home/') or filename.startswith('tmp/'):
+            file_path = '/' + filename  # 恢复绝对路径的前导 /
+        elif os.path.isabs(filename):
+            file_path = filename
+        else:
+            file_path = os.path.join(os.getcwd(), filename)
         
         # 读取文件内容
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -527,8 +533,8 @@ def get_article_content(filename):
         file_type = str(ext)[1:].lower()  # type: ignore[index]  # 去掉点号，转为小写
         
         # 解析文件名，获取当前目录
-        file_dir = os.path.dirname(filename)
-        file_name = os.path.basename(filename)
+        file_dir = os.path.dirname(file_path)
+        file_name = os.path.basename(file_path)
         
         # 获取当前目录下的所有文章文件（排除隐藏文件和非文章文件）
         article_extensions = {'.txt', '.md', '.html', '.htm'}
