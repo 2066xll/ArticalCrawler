@@ -998,18 +998,16 @@ def main():
             # 提取章节号
             chapter_num = extract_chapter_number(article['title'], article['url'])
             
-            # 检查是否已爬取（章节号或URL）
-            if chapter_num is not None and chapter_num in crawled_chapters:
-                logger.info(f"章节 {chapter_num} 已爬取，跳过")
-            else:
-                # 保存当前章节
-                current_file_path = write_article(article, args.output_dir, args.format)
-                current_chapter_title = article['title']
-                actual_chapters_fetched += 1  # 只有新章节才增加计数
-                # 添加到已爬取集合
-                if chapter_num is not None:
-                    crawled_chapters.add(chapter_num)
-                crawled_urls.add(current_url)
+            # 用户明确请求的章节，只按 URL 去重，不按章节号去重
+            # （章节号去重仅用于自动翻页的 prev/next 章节，防止循环）
+            # 保存当前章节
+            current_file_path = write_article(article, args.output_dir, args.format)
+            current_chapter_title = article['title']
+            actual_chapters_fetched += 1
+            # 添加到已爬取集合
+            if chapter_num is not None:
+                crawled_chapters.add(chapter_num)
+            crawled_urls.add(current_url)
         
         # 保存当前章节的信息，用于后续爬取
         current_article = parse_article(fetch_page(current_url), current_url)
