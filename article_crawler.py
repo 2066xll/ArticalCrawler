@@ -1051,19 +1051,6 @@ def main():
                 # 提取章节号
                 chapter_num = extract_chapter_number(article['title'], article['url'])
                 
-                # 检查是否已爬取（章节号或URL）
-                if chapter_num is not None and chapter_num in crawled_chapters:
-                    logger.info(f"章节 {chapter_num} 已爬取，跳过")
-                    prev_chapters_fetched += 1  # 跳过也计数，防止无限循环
-                    # 获取上一章链接继续爬取
-                    if article['prev_chapter_url']:
-                        logger.info(f"获取上一章链接: {article['prev_chapter_url']}")
-                        prev_url = article['prev_chapter_url']
-                    else:
-                        logger.warning(f"未找到上一章链接，向前爬取结束")
-                        break
-                    continue
-                
                 # 检查是否是同一章节的不同部分
                 is_same_chapter = False
                 if prev_chapter_title == article['title'] and prev_file_path:
@@ -1123,19 +1110,6 @@ def main():
                 
                 # 提取章节号
                 chapter_num = extract_chapter_number(article['title'], article['url'])
-                
-                # 检查是否已爬取（章节号或URL）
-                if chapter_num is not None and chapter_num in crawled_chapters:
-                    logger.info(f"章节 {chapter_num} 已爬取，跳过")
-                    next_chapters_fetched += 1  # 跳过也计数，防止无限循环
-                    # 获取下一章链接继续爬取
-                    if article['next_chapter_url']:
-                        logger.info(f"获取下一章链接: {article['next_chapter_url']}")
-                        next_url = article['next_chapter_url']
-                    else:
-                        logger.warning(f"未找到下一章链接，向后爬取结束")
-                        break
-                    continue
                 
                 # 检查是否是同一章节的不同部分
                 is_same_chapter = False
