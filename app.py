@@ -189,22 +189,72 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         # 保存任务状态
         save_tasks()
         
-        # 构建命令
-        # 直接使用用户输入的章节数量作为 -n 参数
-        # article_crawler.py 现在将 -n 参数直接解释为总章节数（包括当前章节）
-        crawler_script = os.path.join(BASE_DIR, 'article_crawler.py')
-        if getattr(sys, 'frozen', False):
-            # 打包后使用内嵌的 Python 解释器路径
-            python_exe = sys.executable
-        else:
-            python_exe = 'python3'
-        command = f'{python_exe} "{crawler_script}" "{url}" -f {format} -o "{output_dir}" -n {next_chapters} -p {prev_chapters}'
+        import io
+        
+        # 构建模拟的命令行参数
+        crawler_args = [
+            'article_crawler.py',
+            url,
+            '-f', str(format),
+            '-o', str(output_dir),
+            '-n', str(next_chapters),
+            '-p', str(prev_chapters)
+        ]
+        command = ' '.join(crawler_args)
         tasks[task_id]['command'] = command
-        # 保存任务状态
         save_tasks()
         
-        # 执行命令
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        # 直接调用爬虫模块（兼容打包和开发模式）
+        import article_crawler
+        
+        # 保存原始 sys.argv 和 stdout/stderr
+        original_argv = sys.argv
+        stdout_capture = io.StringIO()
+        stderr_capture = io.StringIO()
+        
+        return_code = 0
+        try:
+            # 用爬虫参数替换 sys.argv
+            sys.argv = crawler_args
+            
+            # 重定向 stdout/stderr 到捕获缓冲区
+            import logging
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = stdout_capture
+            sys.stderr = stderr_capture
+            
+            # 重新配置 logging 以写入 stderr 捕获缓冲区
+            for handler in logging.root.handlers[:]:
+                logging.root.removeHandler(handler)
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s',
+                stream=stderr_capture
+            )
+            
+            article_crawler.main()
+        except SystemExit as e:
+            return_code = e.code if e.code is not None else 0
+        except Exception as e:
+            return_code = 1
+            stderr_capture.write(str(e))
+        finally:
+            # 恢复原始 sys.argv 和 stdout/stderr
+            sys.argv = original_argv
+            sys.stdout = old_stdout  # type: ignore[possibly-undefined]
+            sys.stderr = old_stderr  # type: ignore[possibly-undefined]
+            
+            # 恢复 logging 配置
+            for handler in logging.root.handlers[:]:
+                logging.root.removeHandler(handler)
+            logging.basicConfig(
+                level=logging.INFO,
+                format='%(asctime)s - %(levelname)s - %(message)s'
+            )
+        
+        captured_stdout = stdout_capture.getvalue()
+        captured_stderr = stderr_capture.getvalue()
         
         # 获取输出文件列表（只包含文章文件，排除隐藏文件和系统文件）
         output_files = []
@@ -235,10 +285,10 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         # 更新任务结果
         tasks[task_id]['status'] = 'completed'
         tasks[task_id]['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        tasks[task_id]['return_code'] = result.returncode
+        tasks[task_id]['return_code'] = return_code
         # 限制stdout和stderr的长度，防止JSON序列化问题
-        tasks[task_id]['stdout'] = str(result.stdout)[:1000] if result.stdout else ''  # type: ignore[index]
-        tasks[task_id]['stderr'] = str(result.stderr)[:1000] if result.stderr else ''  # type: ignore[index]
+        tasks[task_id]['stdout'] = captured_stdout[:1000] if captured_stdout else ''
+        tasks[task_id]['stderr'] = captured_stderr[:1000] if captured_stderr else ''
         tasks[task_id]['output_files'] = sorted_output_files
         tasks[task_id]['file_count'] = len(sorted_output_files)
         # 保存任务状态
