@@ -31,56 +31,71 @@ def parse_args():
     return parser.parse_args()
 
 
+# 全局会话（保持 Cookie，模拟真实浏览行为）
+_session = requests.Session()
+
+# 常用 User-Agent 列表
+_user_agents = [
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.2210.91 Safari/537.36'
+]
+
+
 def fetch_page(url):
-    """获取网页内容"""
+    """获取网页内容（会话保持 + 动态 Referer + 智能重试）"""
     import random
     import time
     
-    # 添加多个User-Agent，随机选择
-    user_agents = [
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/121.0',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
-        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
-        'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.2210.91 Safari/537.36'
-    ]
+    # 根据目标 URL 自动生成 Referer（而不是硬编码）
+    parsed = urlparse(url)
+    referer = f"{parsed.scheme}://{parsed.netloc}/"
     
-    max_retries = 3  # 最大重试次数
-    retry_delay = 5  # 重试延迟（秒）
+    max_retries = 3
+    retry_delay = 5
     
     for attempt in range(max_retries):
         try:
-            # 每次重试都使用不同的User-Agent
             headers = {
-                'User-Agent': random.choice(user_agents),
+                'User-Agent': random.choice(_user_agents),
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language': 'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
                 'Accept-Encoding': 'gzip, deflate',
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
-                'Referer': 'https://www.bqgns.com/',  # 添加Referer头
+                'Referer': referer,
                 'Cache-Control': 'no-cache',
                 'Pragma': 'no-cache'
             }
             
-            # 添加随机延迟，避免请求过快
+            # 随机延迟（1~3 秒），模拟人类行为
             time.sleep(random.uniform(1.0, 3.0))
             
-            response = requests.get(url, headers=headers, timeout=20)
-            response.raise_for_status()  # 检查请求是否成功
-            response.encoding = response.apparent_encoding  # 自动检测编码
+            response = _session.get(url, headers=headers, timeout=20)
+            
+            # 针对 403/429 使用更长的退避
+            if response.status_code in (403, 429):
+                wait = retry_delay * (attempt + 2)
+                logger.warning(f"收到 {response.status_code}，疑似反爬，{wait}秒后重试...")
+                time.sleep(wait)
+                continue
+            
+            response.raise_for_status()
+            response.encoding = response.apparent_encoding
             return response.text
         except requests.exceptions.RequestException as e:
             logger.error(f"获取网页失败 (尝试 {attempt+1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
                 logger.info(f"{retry_delay}秒后重试...")
                 time.sleep(retry_delay)
-                retry_delay *= 1.5  # 指数退避
+                retry_delay *= 1.5
             else:
                 logger.error(f"多次尝试后仍无法获取网页: {url}")
                 raise
@@ -219,6 +234,46 @@ def parse_article(html_content, url):
         paragraphs = soup.find_all('p')
         if paragraphs:
             content = '\n\n'.join([p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)])
+    
+    # ========== 内容清洗 ==========
+    if content:
+        # 过滤广告/推广文本
+        ad_patterns = [
+            r'加入书签',
+            r'推荐票',
+            r'月票',
+            r'打赏',
+            r'点击.*?(下载|安装|阅读)',
+            r'手机.*?阅读',
+            r'app.*?阅读',
+            r'扫码.*?(下载|关注)',
+            r'公众号',
+            r'搜索.*?笔趣',
+            r'最新章节',
+            r'百度搜索',
+            r'本站.*?地址',
+            r'收藏本站',
+            r'www\.\S+\.(com|net|org|cn)',
+            r'https?://\S+',
+        ]
+        lines = content.split('\n')
+        cleaned_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                cleaned_lines.append(line)
+                continue
+            # 跳过纯广告行（短于 50 字符且匹配广告模式）
+            if len(stripped) < 50 and any(re.search(p, stripped, re.IGNORECASE) for p in ad_patterns):
+                continue
+            cleaned_lines.append(line)
+        content = '\n'.join(cleaned_lines)
+        
+        # 合并被错误分割的段落（单个标点独占一行的情况）
+        content = re.sub(r'\n\n([，。！？、；：""''…—）」》】\)\.]{1,3})\n', r'\1\n', content)
+        
+        # 清理多余空行（3个以上换行合并为2个）
+        content = re.sub(r'\n{3,}', '\n\n', content)
     
     # 提取发布时间
     publish_time = ''

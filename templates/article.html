@@ -857,6 +857,21 @@
                         onchange="toggleElement('backToTop')"><span class="toggle-track"></span></label>
             </div>
         </div>
+
+        <!-- Reading features -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:brain-bold"></iconify-icon> 智能功能</div>
+            <div class="toggle-row">
+                <span class="toggle-label">记住阅读进度</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleRememberProgress" checked
+                        onchange="toggleFeature('rememberProgress')"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">到底自动翻页</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleAutoTurn"
+                        onchange="toggleFeature('autoTurn')"><span class="toggle-track"></span></label>
+            </div>
+        </div>
     </div>
 
     <!-- Main reader area -->
@@ -890,6 +905,78 @@
         <iconify-icon icon="ph:arrow-up-bold" style="font-size:1.3rem"></iconify-icon>
     </div>
 
+    <!-- Auto page turn banner -->
+    <div class="auto-turn-banner" id="autoTurnBanner">
+        <span id="autoTurnText">即将翻到下一章...</span>
+        <span class="auto-turn-countdown" id="autoTurnCountdown">3</span>
+        <button class="btn btn-ghost" onclick="cancelAutoTurn()"
+            style="padding:.2rem .5rem;font-size:.75rem">取消</button>
+    </div>
+
+    <!-- Toast for progress restore -->
+    <div class="toast-notification" id="progressToast">已恢复到上次阅读位置</div>
+
+    <style>
+        .auto-turn-banner {
+            position: fixed;
+            bottom: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: #fff;
+            border: 3px solid var(--border-color);
+            box-shadow: 4px 4px 0 var(--border-color);
+            padding: .5rem 1.2rem;
+            font-weight: 800;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            z-index: 200;
+            transition: bottom .3s ease;
+            white-space: nowrap;
+        }
+
+        .auto-turn-banner.visible {
+            bottom: 2rem;
+        }
+
+        .auto-turn-countdown {
+            background: #fff;
+            color: var(--accent);
+            border-radius: 50%;
+            width: 1.8rem;
+            height: 1.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1rem;
+        }
+
+        .toast-notification {
+            position: fixed;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--btn-bg);
+            color: var(--text-color);
+            border: 3px solid var(--border-color);
+            box-shadow: 4px 4px 0 var(--border-color);
+            padding: .4rem 1rem;
+            font-weight: 800;
+            font-family: 'Courier New', monospace;
+            font-size: .85rem;
+            z-index: 200;
+            transition: top .3s ease;
+            white-space: nowrap;
+        }
+
+        .toast-notification.visible {
+            top: 4rem;
+        }
+    </style>
+
     <script>
         (function () {
             // ========== State ==========
@@ -897,7 +984,7 @@
 
             // ========== Preferences ==========
             const PREFS_KEY = 'reader-prefs';
-            const defaults = { theme: 'light', fontSize: 18, spacing: '2.0', showProgress: true, showMeta: true, showNav: true, showToolbar: true, showBorders: true, showBackToTop: true };
+            const defaults = { theme: 'light', fontSize: 18, spacing: '2.0', showProgress: true, showMeta: true, showNav: true, showToolbar: true, showBorders: true, showBackToTop: true, rememberProgress: true, autoTurn: false };
             let prefs = Object.assign({}, defaults);
 
             function loadPrefs() {
@@ -975,6 +1062,8 @@
                 document.getElementById('toggleToolbar').checked = prefs.showToolbar;
                 document.getElementById('toggleBorders').checked = prefs.showBorders;
                 document.getElementById('toggleBackToTop').checked = prefs.showBackToTop;
+                document.getElementById('toggleRememberProgress').checked = prefs.rememberProgress;
+                document.getElementById('toggleAutoTurn').checked = prefs.autoTurn;
 
                 if (!prefs.showProgress) document.getElementById('readingProgress').style.display = 'none';
                 if (!prefs.showMeta) document.getElementById('articleHeader').style.display = 'none';
@@ -1020,13 +1109,112 @@
                 o.classList.toggle('open', !open); p.classList.toggle('open', !open);
             };
 
+            // ========== Feature Toggles ==========
+            window.toggleFeature = function (feat) {
+                const map = { rememberProgress: 'toggleRememberProgress', autoTurn: 'toggleAutoTurn' };
+                const cb = document.getElementById(map[feat]);
+                prefs[feat] = cb.checked;
+                savePrefs();
+            };
+
             // ========== Reading Progress ==========
+            let _progressSaveTimer = null;
+            const PROGRESS_KEY = 'reading-scroll';
+
+            function saveScrollPosition() {
+                if (!prefs.rememberProgress) return;
+                const fp = getFilePath();
+                if (!fp) return;
+                const docH = document.documentElement.scrollHeight - window.innerHeight;
+                if (docH <= 0) return;
+                const pct = window.scrollY / docH;
+                try {
+                    const store = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}');
+                    store[fp] = { percent: pct, timestamp: Date.now() };
+                    // 只保留最近 200 条
+                    const keys = Object.keys(store);
+                    if (keys.length > 200) {
+                        keys.sort((a, b) => store[a].timestamp - store[b].timestamp);
+                        keys.slice(0, keys.length - 200).forEach(k => delete store[k]);
+                    }
+                    localStorage.setItem(PROGRESS_KEY, JSON.stringify(store));
+                } catch (e) { }
+            }
+
+            function restoreScrollPosition() {
+                if (!prefs.rememberProgress) return;
+                const fp = getFilePath();
+                if (!fp) return;
+                try {
+                    const store = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}');
+                    const entry = store[fp];
+                    if (entry && entry.percent > 0.02) {
+                        const docH = document.documentElement.scrollHeight - window.innerHeight;
+                        const target = Math.round(entry.percent * docH);
+                        setTimeout(() => {
+                            window.scrollTo({ top: target, behavior: 'smooth' });
+                            showToast('已恢复到上次阅读位置');
+                        }, 100);
+                    }
+                } catch (e) { }
+            }
+
+            function showToast(msg) {
+                const t = document.getElementById('progressToast');
+                t.textContent = msg;
+                t.classList.add('visible');
+                setTimeout(() => t.classList.remove('visible'), 2500);
+            }
+
+            // ========== Auto Page Turn ==========
+            let _autoTurnTimer = null;
+            let _autoTurnCountdown = 3;
+
+            function checkAutoTurn() {
+                if (!prefs.autoTurn || !nextArticle) return;
+                const docH = document.documentElement.scrollHeight;
+                const scrollBottom = window.scrollY + window.innerHeight;
+                if (scrollBottom >= docH - 150) {
+                    if (!_autoTurnTimer) startAutoTurn();
+                } else {
+                    cancelAutoTurn();
+                }
+            }
+
+            function startAutoTurn() {
+                if (_autoTurnTimer) return;
+                _autoTurnCountdown = 3;
+                const banner = document.getElementById('autoTurnBanner');
+                document.getElementById('autoTurnCountdown').textContent = _autoTurnCountdown;
+                banner.classList.add('visible');
+                _autoTurnTimer = setInterval(() => {
+                    _autoTurnCountdown--;
+                    document.getElementById('autoTurnCountdown').textContent = _autoTurnCountdown;
+                    if (_autoTurnCountdown <= 0) {
+                        cancelAutoTurn();
+                        if (nextArticle) navigateTo(nextArticle);
+                    }
+                }, 1000);
+            }
+
+            window.cancelAutoTurn = function () {
+                if (_autoTurnTimer) { clearInterval(_autoTurnTimer); _autoTurnTimer = null; }
+                document.getElementById('autoTurnBanner').classList.remove('visible');
+            };
+
             function updateProgress() {
                 const winH = window.innerHeight, docH = document.documentElement.scrollHeight;
                 const pct = Math.min(100, (window.scrollY / (docH - winH)) * 100);
                 document.getElementById('readingProgress').style.width = pct + '%';
                 const btn = document.getElementById('backToTop');
                 btn.classList.toggle('visible', window.scrollY > winH * 0.5);
+
+                // 防抖保存阅读进度
+                if (_progressSaveTimer) clearTimeout(_progressSaveTimer);
+                _progressSaveTimer = setTimeout(saveScrollPosition, 2000);
+
+                // 检查自动翻页
+                checkAutoTurn();
             }
             window.addEventListener('scroll', updateProgress, { passive: true });
 
@@ -1103,9 +1291,12 @@
 
                     document.getElementById('loadingState').style.display = 'none';
                     document.getElementById('articleWrap').style.display = 'block';
+                    cancelAutoTurn();
                     window.scrollTo({ top: 0 });
                     updateProgress();
                     applyPrefs();
+                    // 恢复阅读进度（在 applyPrefs 之后、内容渲染后）
+                    setTimeout(() => restoreScrollPosition(), 200);
                 } catch (e) { showError('网络请求失败: ' + e.message); }
             }
 
