@@ -759,6 +759,12 @@
             </a>
         </div>
         <div class="toolbar-right">
+            <button class="btn btn-ghost" id="autoReadBtn" title="自动阅读 (空格键)" onclick="toggleAutoScroll()">
+                <iconify-icon icon="ph:play-bold" id="autoReadIcon"></iconify-icon> <span class="kbd">Space</span>
+            </button>
+            <button class="btn btn-ghost" onclick="toggleFullScreen()" title="全屏沉浸">
+                <iconify-icon icon="ph:corners-out-bold" id="fullscreenIcon"></iconify-icon>
+            </button>
             <button class="btn btn-ghost" id="prevToolbarBtn" title="上一章 (←)" disabled onclick="navPrev()">
                 <iconify-icon icon="ph:caret-left-bold"></iconify-icon>
             </button>
@@ -861,15 +867,48 @@
         <!-- Reading features -->
         <div class="settings-section">
             <div class="settings-label"><iconify-icon icon="ph:brain-bold"></iconify-icon> 智能功能</div>
+
             <div class="toggle-row">
                 <span class="toggle-label">记住阅读进度</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggleRememberProgress" checked
                         onchange="toggleFeature('rememberProgress')"><span class="toggle-track"></span></label>
             </div>
+
+            <div class="toggle-row">
+                <span class="toggle-label" style="display:flex;align-items:center;gap:0.5rem">自动下滑速度
+                    <input type="range" class="small-range" min="1" max="10" step="1" id="autoScrollSpeed"
+                        oninput="setAutoScrollSpeed(this.value)" style="width:60px">
+                </span>
+                <span class="slider-val" id="scrollSpeedVal" style="font-size:0.8rem">3x</span>
+            </div>
+
             <div class="toggle-row">
                 <span class="toggle-label">到底自动翻页</span>
                 <label class="toggle-switch"><input type="checkbox" id="toggleAutoTurn"
                         onchange="toggleFeature('autoTurn')"><span class="toggle-track"></span></label>
+            </div>
+
+            <div class="toggle-row" id="autoTurnSecondsRow">
+                <span class="toggle-label" style="display:flex;align-items:center;gap:0.5rem">翻页倒计时(秒)
+                    <input type="range" class="small-range" min="0" max="10" step="1" id="autoTurnSeconds"
+                        oninput="setAutoTurnSeconds(this.value)" style="width:60px">
+                </span>
+                <span class="slider-val" id="turnSecondsVal" style="font-size:0.8rem">3s</span>
+            </div>
+        </div>
+
+        <!-- UI Preferences -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:bell-slash-bold"></iconify-icon> 提示隐藏</div>
+            <div class="toggle-row">
+                <span class="toggle-label">显示已恢复进度提示</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleShowToast" checked
+                        onchange="toggleFeature('showToast')"><span class="toggle-track"></span></label>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">显示到底翻页倒计时横幅</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleShowBanner" checked
+                        onchange="toggleFeature('showBanner')"><span class="toggle-track"></span></label>
             </div>
         </div>
     </div>
@@ -889,6 +928,8 @@
             <div class="article-header" id="articleHeader">
                 <h1 class="article-title" id="articleTitle"></h1>
                 <div class="article-meta" id="articleMeta"></div>
+                <div class="article-meta" id="articleTimeMeta"
+                    style="margin-top:0.4rem;color:var(--text-muted);font-size:0.8rem"></div>
             </div>
             <div class="article-body" id="articleBody"></div>
             <div class="chapter-nav" id="chapterNav">
@@ -984,7 +1025,12 @@
 
             // ========== Preferences ==========
             const PREFS_KEY = 'reader-prefs';
-            const defaults = { theme: 'light', fontSize: 18, spacing: '2.0', showProgress: true, showMeta: true, showNav: true, showToolbar: true, showBorders: true, showBackToTop: true, rememberProgress: true, autoTurn: false };
+            const defaults = {
+                theme: 'light', fontSize: 18, spacing: '2.0',
+                showProgress: true, showMeta: true, showNav: true, showToolbar: true, showBorders: true, showBackToTop: true,
+                rememberProgress: true, autoTurn: false,
+                autoScrollSpeed: 3, autoTurnSeconds: 3, showToast: true, showBanner: true
+            };
             let prefs = Object.assign({}, defaults);
 
             function loadPrefs() {
@@ -1064,6 +1110,13 @@
                 document.getElementById('toggleBackToTop').checked = prefs.showBackToTop;
                 document.getElementById('toggleRememberProgress').checked = prefs.rememberProgress;
                 document.getElementById('toggleAutoTurn').checked = prefs.autoTurn;
+                document.getElementById('toggleShowToast').checked = prefs.showToast;
+                document.getElementById('toggleShowBanner').checked = prefs.showBanner;
+
+                document.getElementById('autoScrollSpeed').value = prefs.autoScrollSpeed;
+                document.getElementById('scrollSpeedVal').textContent = prefs.autoScrollSpeed + 'x';
+                document.getElementById('autoTurnSeconds').value = prefs.autoTurnSeconds;
+                document.getElementById('turnSecondsVal').textContent = prefs.autoTurnSeconds + 's';
 
                 if (!prefs.showProgress) document.getElementById('readingProgress').style.display = 'none';
                 if (!prefs.showMeta) document.getElementById('articleHeader').style.display = 'none';
@@ -1084,6 +1137,15 @@
                 const o = document.getElementById('tocOverlay'), d = document.getElementById('tocDrawer');
                 const open = d.classList.contains('open');
                 o.classList.toggle('open', !open); d.classList.toggle('open', !open);
+                if (!open) {
+                    // Drawer is opening, scroll active item into view
+                    setTimeout(() => {
+                        const activeItem = document.querySelector('.toc-item.active');
+                        if (activeItem) {
+                            activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 300);
+                }
             };
 
             function renderToc(list, currentFile) {
@@ -1111,10 +1173,42 @@
 
             // ========== Feature Toggles ==========
             window.toggleFeature = function (feat) {
-                const map = { rememberProgress: 'toggleRememberProgress', autoTurn: 'toggleAutoTurn' };
+                const map = {
+                    rememberProgress: 'toggleRememberProgress',
+                    autoTurn: 'toggleAutoTurn',
+                    showToast: 'toggleShowToast',
+                    showBanner: 'toggleShowBanner'
+                };
                 const cb = document.getElementById(map[feat]);
                 prefs[feat] = cb.checked;
                 savePrefs();
+            };
+
+            window.setAutoScrollSpeed = function (val) {
+                prefs.autoScrollSpeed = parseInt(val);
+                document.getElementById('scrollSpeedVal').textContent = val + 'x';
+                savePrefs();
+            };
+
+            window.setAutoTurnSeconds = function (val) {
+                prefs.autoTurnSeconds = parseInt(val);
+                document.getElementById('turnSecondsVal').textContent = val + 's';
+                savePrefs();
+            };
+
+            // ========== Fullscreen ==========
+            window.toggleFullScreen = function () {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.error(`全屏请求失败: ${err.message}`);
+                    });
+                    document.getElementById('fullscreenIcon').setAttribute('icon', 'ph:corners-in-bold');
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                        document.getElementById('fullscreenIcon').setAttribute('icon', 'ph:corners-out-bold');
+                    }
+                }
             };
 
             // ========== Reading Progress ==========
@@ -1160,18 +1254,54 @@
             }
 
             function showToast(msg) {
+                if (!prefs.showToast) return;
                 const t = document.getElementById('progressToast');
                 t.textContent = msg;
                 t.classList.add('visible');
                 setTimeout(() => t.classList.remove('visible'), 2500);
             }
 
+            // ========== Auto Scroll (Auto Read) ==========
+            let _autoScrollTimer = null;
+
+            window.toggleAutoScroll = function () {
+                const btnIcon = document.getElementById('autoReadIcon');
+                if (_autoScrollTimer) {
+                    clearInterval(_autoScrollTimer);
+                    _autoScrollTimer = null;
+                    btnIcon.setAttribute('icon', 'ph:play-bold');
+                    showToast('自动阅读已暂停');
+                } else {
+                    // Start auto scrolling
+                    btnIcon.setAttribute('icon', 'ph:pause-bold');
+                    showToast(`开始自动阅读 (速度: ${prefs.autoScrollSpeed}x)`);
+
+                    _autoScrollTimer = setInterval(() => {
+                        // Calculate scroll delta based on speed (1-10)
+                        // Speed 1: ~1px per 40ms, Speed 10: ~10px per 40ms
+                        const delta = prefs.autoScrollSpeed * 1.5;
+                        window.scrollBy({ top: delta, behavior: 'auto' });
+
+                        // Check if bottom reached (allow some tolerance)
+                        const docH = document.documentElement.scrollHeight;
+                        const scrollBottom = window.scrollY + window.innerHeight;
+                        if (scrollBottom >= docH - 5) {
+                            // Reached bottom, clear scroll and check auto turn
+                            toggleAutoScroll();
+                            if (prefs.autoTurn && nextArticle) {
+                                startAutoTurn();
+                            }
+                        }
+                    }, 40); // 25fps smooth scroll
+                }
+            };
+
             // ========== Auto Page Turn ==========
             let _autoTurnTimer = null;
             let _autoTurnCountdown = 3;
 
             function checkAutoTurn() {
-                if (!prefs.autoTurn || !nextArticle) return;
+                if (!prefs.autoTurn || !nextArticle || _autoScrollTimer) return; // 自动下拉状态下不处理此逻辑，由下拉模块统一调度
                 const docH = document.documentElement.scrollHeight;
                 const scrollBottom = window.scrollY + window.innerHeight;
                 if (scrollBottom >= docH - 150) {
@@ -1183,16 +1313,32 @@
 
             function startAutoTurn() {
                 if (_autoTurnTimer) return;
-                _autoTurnCountdown = 3;
+                _autoTurnCountdown = prefs.autoTurnSeconds;
+
+                const executeTurn = () => {
+                    cancelAutoTurn();
+                    if (nextArticle) navigateTo(nextArticle);
+                };
+
+                // 如果设置到底倒计时为 0，直接跳转
+                if (_autoTurnCountdown === 0) {
+                    executeTurn();
+                    return;
+                }
+
                 const banner = document.getElementById('autoTurnBanner');
-                document.getElementById('autoTurnCountdown').textContent = _autoTurnCountdown;
-                banner.classList.add('visible');
+                if (prefs.showBanner) {
+                    document.getElementById('autoTurnCountdown').textContent = _autoTurnCountdown;
+                    banner.classList.add('visible');
+                }
+
                 _autoTurnTimer = setInterval(() => {
                     _autoTurnCountdown--;
-                    document.getElementById('autoTurnCountdown').textContent = _autoTurnCountdown;
+                    if (prefs.showBanner) {
+                        document.getElementById('autoTurnCountdown').textContent = _autoTurnCountdown;
+                    }
                     if (_autoTurnCountdown <= 0) {
-                        cancelAutoTurn();
-                        if (nextArticle) navigateTo(nextArticle);
+                        executeTurn();
                     }
                 }, 1000);
             }
@@ -1281,6 +1427,11 @@
                     if (meta.source) mh += `<span class="meta-item"><iconify-icon icon="ph:link-bold"></iconify-icon> <a href="${meta.source}" target="_blank" style="color:inherit">${meta.source.length > 40 ? meta.source.substring(0, 40) + '...' : meta.source}</a></span>`;
                     mh += `<span class="meta-item"><iconify-icon icon="ph:file-text-bold"></iconify-icon> ${data.filename}</span>`;
                     document.getElementById('articleMeta').innerHTML = mh;
+
+                    const charCount = data.content.length;
+                    const readTimeMins = Math.max(1, Math.ceil(charCount / 400)); // Assume 400 chars per min
+                    document.getElementById('articleTimeMeta').innerHTML = `<iconify-icon icon="ph:clock-bold"></iconify-icon> 约 ${charCount} 字，预计阅读时间 ${readTimeMins} 分钟`;
+
                     document.getElementById('articleBody').innerHTML = extractBody(data.content);
 
                     prevArticle = data.prev_article;
@@ -1338,9 +1489,16 @@
             // ========== Keyboard ==========
             document.addEventListener('keydown', function (e) {
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-                if (e.key === 'ArrowLeft' && prevArticle) { e.preventDefault(); navigateTo(prevArticle) }
-                else if (e.key === 'ArrowRight' && nextArticle) { e.preventDefault(); navigateTo(nextArticle) }
-                else if (e.key === 'Escape') {
+
+                if (e.key === ' ' || e.code === 'Space') {
+                    // Spacebar to toggle auto scroll
+                    e.preventDefault();
+                    toggleAutoScroll();
+                } else if (e.key === 'ArrowLeft' && prevArticle) {
+                    e.preventDefault(); navigateTo(prevArticle);
+                } else if (e.key === 'ArrowRight' && nextArticle) {
+                    e.preventDefault(); navigateTo(nextArticle);
+                } else if (e.key === 'Escape') {
                     if (document.getElementById('tocDrawer').classList.contains('open')) toggleToc();
                     if (document.getElementById('settingsPanel').classList.contains('open')) toggleSettings();
                 }

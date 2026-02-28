@@ -88,7 +88,21 @@ def fetch_page(url):
                 continue
             
             response.raise_for_status()
-            response.encoding = response.apparent_encoding
+            
+            # 改进的编码检测：优先从 meta charset 提取，其次 apparent_encoding，最后 utf-8
+            # 这比单纯依赖 apparent_encoding 更准确且更快
+            content_bytes = response.content
+            # 先用 ascii/utf-8 尝试解码头部以查找 meta 标签
+            header_str = content_bytes[:2048].decode('utf-8', errors='ignore')
+            meta_charset = re.search(r'<meta.*?charset=["\']?([a-zA-Z0-9\-_]+)["\']?', header_str, re.IGNORECASE)
+            if not meta_charset:
+                meta_charset = re.search(r'<meta.*?content=["\'].*?charset=([a-zA-Z0-9\-_]+)["\']?', header_str, re.IGNORECASE)
+                
+            if meta_charset:
+                response.encoding = meta_charset.group(1)
+            else:
+                response.encoding = response.apparent_encoding or 'utf-8'
+                
             return response.text
         except requests.exceptions.RequestException as e:
             logger.error(f"获取网页失败 (尝试 {attempt+1}/{max_retries}): {e}")
@@ -104,6 +118,13 @@ def fetch_page(url):
 def parse_article(html_content, url):
     """解析文章内容"""
     soup = BeautifulSoup(html_content, 'lxml')
+    
+    # 提前全局剔除干扰标签 (极限优化)，减少在提取正文时的干扰
+    for tag in soup(['script', 'style', 'noscript', 'iframe', 'embed', 'footer', 'header', 'nav', 'aside', 'form', 'button', 'input']):
+        tag.decompose()
+    # 剔除常见的干扰CSS类 (如侧边栏、评论区、广告区域)
+    for tag in soup.find_all(class_=re.compile(r'comment|sidebar|ad-|ads-|advert|widget|share|qr', re.I)):
+        tag.decompose()
     
     # 提取文章标题
     title = ''
@@ -179,61 +200,84 @@ def parse_article(html_content, url):
             except Exception as e:
                 logger.error(f"解析bqgns.com的正文内容失败: {e}")
     
-    # 如果从NUXT对象中没有提取到内容，尝试使用普通选择器
+    # 如果从NUXT对象中没有提取到内容
     if not content:
-        # 增强正文选择器，添加小说网站常用的选择器
+        # 1. 优先尝试常见的正文容器选择器
         content_selectors = [
-            '#content',  # 笔趣阁等小说网站常用的id
-            '.article-content', '.content', '.post-content', '.article-body',
-            '.main-content', '.entry-content', '.article-text',
-            '.chapter-content', '.read-content', '.text'  # 小说网站常用的正文类名
+            '#content', '#chaptercontent', '#BookText', '#nr_title', '.article-content', 
+            '.content', '.post-content', '.article-body', '.main-content', '.entry-content', 
+            '.article-text', '.chapter-content', '.read-content', '.text', 'article', '.main-text'
         ]
         
+        main_box = None
         for selector in content_selectors:
             elements = soup.select(selector)
             if elements:
-                # 清理正文内容 - 只清理广告和冗余元素，保留原文结构
-                for tag in elements[0](['script', 'style', 'noscript', 'iframe', 'embed', 'div.ad', 'div.ads', 'div.advertisement', '.chapter-nav', '.read-nav']):
-                    tag.decompose()
+                # 为了防止误命中外层大容器，检查内部文本长度
+                if len(elements[0].get_text(strip=True)) > 200:
+                    main_box = elements[0]
+                    break
+                    
+        # 2. 备用算法：基于文本密度的通用抽取算法 (适用于未知网站结构)
+        # 思路：找到包含最多文本且文本密度最高的 div/section/article 标签
+        if not main_box:
+            candidates = soup.find_all(['div', 'section', 'article', 'td'])
+            max_score = -1
+            
+            for candidate in candidates:
+                text_len = len(candidate.get_text(strip=True))
+                # 过滤掉内容太少的块
+                if text_len < 300:
+                    continue
+                # 计算节点深度和直接 a 标签的影响（非正文特征）
+                a_tags = candidate.find_all('a')
+                a_len = sum(len(a.get_text(strip=True)) for a in a_tags)
                 
-                # 获取div内的所有文本节点，保留段落格式
-                paragraphs = []
+                # 如果超链接文本占比过高（>30%），很可能是目录或列表，不是正文
+                if a_len > 0 and (a_len / text_len) > 0.3:
+                    continue
+                    
+                # 基础分数 = 文本长度
+                score = text_len
+                # 惩罚：大量空白字符和超链接
+                score -= a_len * 2
                 
-                # 处理小说网站常见的正文格式：直接在div内用换行分隔段落
-                # 遍历div的所有子节点
-                for child in elements[0].contents:
-                    if child.name is None:  # 文本节点
-                        text = child.strip()
-                        if text:
-                            paragraphs.append(text)
-                    elif child.name in ['p', 'div', 'br']:  # 段落相关标签
-                        text = child.get_text(strip=True)
-                        if text:
-                            paragraphs.append(text)
+                if score > max_score:
+                    max_score = score
+                    main_box = candidate
+                    
+        # 3. 如果找到了大概率的正文容器，提取段落
+        if main_box:
+            # 清理剩余的干扰元素（在前置清理基础上额外清理）
+            for tag in main_box(['div.ad', 'div.ads', 'div.advertisement', '.chapter-nav', '.read-nav', '.bottom-navigation']):
+                tag.decompose()
                 
-                # 将段落用两个换行连接
-                if paragraphs:
-                    content = '\n\n'.join(paragraphs)
-                    # 移除多余的"go"字
-                    content = content.replace('go', '')
-                else:
-                    # 备用方案：直接获取文本并处理
-                    raw_content = elements[0].get_text()
-                    # 清理首尾空白
-                    content = raw_content.strip()
-                    # 移除多余的"go"字
-                    content = content.replace('go', '')
-                    # 将连续的空白字符替换为单个空格，但保留换行
-                    content = re.sub(r'(?![\n])\s+', ' ', content)
-                    # 将多个换行替换为两个换行
-                    content = re.sub(r'\n+', '\n\n', content)
-                break
-    
-    # 如果没有找到正文，尝试提取所有p标签
-    if not content:
-        paragraphs = soup.find_all('p')
-        if paragraphs:
-            content = '\n\n'.join([p.get_text(strip=True) for p in paragraphs if p.get_text(strip=True)])
+            paragraphs = []
+            
+            # 遍历所有子节点，提取文本和段落
+            for child in main_box.contents:
+                if child.name is None:  # 文本节点
+                    text = child.strip()
+                    if text:
+                        paragraphs.append(text)
+                elif child.name in ['p', 'div', 'br', 'span']:  # 段落相关标签
+                    # 对于标签内的文字，如果是包含内部换行的块，也予以打散保留
+                    text = child.get_text(strip=True)
+                    if text:
+                        paragraphs.append(text)
+            
+            if paragraphs:
+                content = '\n\n'.join(paragraphs)
+            else:
+                raw_content = main_box.get_text()
+                content = raw_content.strip()
+                content = re.sub(r'(?![\n])\s+', ' ', content)
+                content = re.sub(r'\n+', '\n\n', content)
+        else:
+            # 极限兜底：提取整个页面的所有 p 标签
+            paragraphs = soup.find_all('p')
+            if paragraphs:
+                content = '\n\n'.join([p.get_text(strip=True) for p in paragraphs if len(p.get_text(strip=True)) > 5])
     
     # ========== 内容清洗 ==========
     if content:
@@ -270,7 +314,7 @@ def parse_article(html_content, url):
         content = '\n'.join(cleaned_lines)
         
         # 合并被错误分割的段落（单个标点独占一行的情况）
-        content = re.sub(r'\n\n([，。！？、；：""''…—）」》】\)\.]{1,3})\n', r'\1\n', content)
+        content = re.sub(r'\n\n([，。！？、；：""\'\'…—）」》】\)\.]{1,3})\n', r'\1\n', content)
         
         # 清理多余空行（3个以上换行合并为2个）
         content = re.sub(r'\n{3,}', '\n\n', content)
@@ -745,6 +789,16 @@ def parse_article(html_content, url):
         logger.info(f"最终上一章链接: {prev_chapter_url}")
     else:
         logger.warning(f"未找到上一章链接")
+        
+    # 清理下一章和上一章 URL 中的无效锚点和查询参数
+    from urllib.parse import urlparse, urlunparse
+    def clean_url(u):
+        if not u: return u
+        parsed = urlparse(u)
+        return urlunparse(parsed._replace(query='', fragment=''))
+    
+    next_chapter_url = clean_url(next_chapter_url)
+    prev_chapter_url = clean_url(prev_chapter_url)
     
     return {
         'title': title,
