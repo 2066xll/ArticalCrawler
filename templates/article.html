@@ -1378,11 +1378,16 @@
 
             // ========== Article Loading ==========
             function getFilePath() {
-                const p = decodeURIComponent(window.location.pathname);
-                return p.startsWith('/article/') ? p.substring(9) : '';
+                const path = window.location.pathname;
+                if (path === '/read_online') {
+                    const params = new URLSearchParams(window.location.search);
+                    return 'ONLINE:' + (params.get('url') || '');
+                }
+                return decodeURIComponent(path).startsWith('/article/') ? decodeURIComponent(path).substring(9) : '';
             }
             function getFileDir() {
                 const fp = getFilePath();
+                if (fp.startsWith('ONLINE:')) return '';
                 const idx = fp.lastIndexOf('/');
                 return idx >= 0 ? fp.substring(0, idx) : '';
             }
@@ -1413,8 +1418,21 @@
                 document.getElementById('errorState').style.display = 'none';
                 document.getElementById('articleWrap').style.display = 'none';
                 try {
-                    const resp = await fetch('/api/article/' + encodeURIComponent(filePath));
-                    const data = await resp.json();
+                    let resp, data;
+                    if (filePath.startsWith('ONLINE:')) {
+                        const targetUrl = filePath.substring(7);
+                        if (!targetUrl) throw new Error("无有效链接");
+                        resp = await fetch('/api/parse_online', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ url: targetUrl })
+                        });
+                        data = await resp.json();
+                    } else {
+                        resp = await fetch('/api/article/' + encodeURIComponent(filePath));
+                        data = await resp.json();
+                    }
+
                     if (!data.success) { showError(data.error || '加载失败'); return; }
 
                     const title = parseTitle(data.content);
@@ -1460,28 +1478,38 @@
             function setupNav() {
                 const pb = document.getElementById('prevBtn'), nb = document.getElementById('nextBtn');
                 const ptb = document.getElementById('prevToolbarBtn'), ntb = document.getElementById('nextToolbarBtn');
+
+                const isOnline = getFilePath().startsWith('ONLINE:');
+
                 if (prevArticle) {
-                    pb.classList.remove('disabled'); pb.href = '/article/' + prevArticle;
-                    pb.onclick = function (e) { e.preventDefault(); navigateTo(prevArticle) };
+                    pb.classList.remove('disabled');
+                    pb.href = isOnline ? '/read_online?url=' + encodeURIComponent(prevArticle) : '/article/' + prevArticle;
+                    pb.onclick = function (e) { e.preventDefault(); navigateTo(isOnline ? 'ONLINE:' + prevArticle : prevArticle) };
                     ptb.disabled = false;
                 } else {
                     pb.classList.add('disabled'); pb.removeAttribute('href'); pb.onclick = null;
                     ptb.disabled = true;
                 }
+
                 if (nextArticle) {
-                    nb.classList.remove('disabled'); nb.href = '/article/' + nextArticle;
-                    nb.onclick = function (e) { e.preventDefault(); navigateTo(nextArticle) };
+                    nb.classList.remove('disabled');
+                    nb.href = isOnline ? '/read_online?url=' + encodeURIComponent(nextArticle) : '/article/' + nextArticle;
+                    nb.onclick = function (e) { e.preventDefault(); navigateTo(isOnline ? 'ONLINE:' + nextArticle : nextArticle) };
                     ntb.disabled = false;
                 } else {
                     nb.classList.add('disabled'); nb.removeAttribute('href'); nb.onclick = null;
                     ntb.disabled = true;
                 }
             }
-            window.navPrev = function () { if (prevArticle) navigateTo(prevArticle); };
-            window.navNext = function () { if (nextArticle) navigateTo(nextArticle); };
+            window.navPrev = function () { if (prevArticle) navigateTo(getFilePath().startsWith('ONLINE:') ? 'ONLINE:' + prevArticle : prevArticle); };
+            window.navNext = function () { if (nextArticle) navigateTo(getFilePath().startsWith('ONLINE:') ? 'ONLINE:' + nextArticle : nextArticle); };
 
             function navigateTo(fp) {
-                history.pushState(null, '', '/article/' + fp);
+                if (fp.startsWith('ONLINE:')) {
+                    history.pushState(null, '', '/read_online?url=' + encodeURIComponent(fp.substring(7)));
+                } else {
+                    history.pushState(null, '', '/article/' + fp);
+                }
                 loadArticle(fp);
             }
             window.addEventListener('popstate', function () { const fp = getFilePath(); if (fp) loadArticle(fp); });
@@ -1507,7 +1535,7 @@
             // ========== Init ==========
             loadPrefs();
             const fp = getFilePath();
-            if (fp) loadArticle(fp); else showError('未指定文章路径');
+            if (fp && fp !== 'ONLINE:') loadArticle(fp); else showError('未指定文章路径或链接');
         })();
     </script>
 </body>

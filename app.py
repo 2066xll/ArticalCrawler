@@ -11,6 +11,9 @@ import re
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_from_directory, make_response  # type: ignore[import]
 import subprocess
+import traceback
+
+from article_crawler import fetch_page, parse_article
 
 # 添加缓存支持
 from functools import wraps
@@ -508,6 +511,53 @@ def static_images(filename):
 @app.route('/article/<path:filename>')
 def article_view(filename):
     return send_from_directory(FRONTEND_DIR, 'article.html')
+
+# 在线阅读页面
+@app.route('/read_online')
+def read_online_view():
+    return send_from_directory(FRONTEND_DIR, 'article.html')
+
+# 在线解析API（无痕阅读）
+@app.route('/api/parse_online', methods=['POST'])
+@rate_limit_decorator
+def parse_online():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': '请求体不能为空'}), 400
+        
+        url = data.get('url')
+        if not url:
+            return jsonify({'success': False, 'error': 'URL不能为空'}), 400
+        
+        # 实时抓取并解析
+        try:
+            html = fetch_page(url)
+            if not html:
+                return jsonify({'success': False, 'error': '无法获取网页内容'}), 500
+                
+            title, content, next_url, prev_url, author_info, publish_time = parse_article(html, url)
+            
+            if not title and not content:
+                return jsonify({'success': False, 'error': '无法解析文章内容，可能是不支持的网站'}, 500)
+                
+            # 组装返回数据，符合现有阅读器接口
+            return jsonify({
+                'success': True,
+                'filename': url,
+                'file_type': 'online',
+                'content': f"{title}\n{author_info}\n原文链接: {url}\n==================================================\n\n{content}",
+                'prev_article': prev_url,
+                'next_article': next_url,
+                'chapter_list': [] # 在线模式暂不提供完整目录
+            })
+            
+        except Exception as e:
+            traceback.print_exc()
+            return jsonify({'success': False, 'error': f'解析失败: {str(e)}'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # 获取文章内容的API
 @app.route('/api/article/<path:filename>', methods=['GET'])
