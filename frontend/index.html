@@ -360,12 +360,23 @@
                     <div class="form-text">默认塞进当前目录的 output 文件夹。</div>
                 </div>
 
-                <div class="d-flex flex-column flex-md-row gap-3 mt-5">
-                    <button type="submit" class="btn btn-primary flex-grow-1">
+                <div class="d-flex flex-column flex-md-row gap-3 mt-5" style="flex-wrap: wrap;">
+                    <button type="submit" class="btn btn-primary flex-grow-1" style="flex-basis: 30%;">
                         <iconify-icon icon="ph:rocket-launch-bold"></iconify-icon> 开搞！
                     </button>
-                    <a href="/history" class="btn btn-secondary">
+                    <button type="button" class="btn btn-warning flex-grow-1" id="btn-online"
+                        style="flex-basis: 30%; font-weight: bold;">
+                        <iconify-icon icon="ph:book-open-text-bold"></iconify-icon> 在线阅读
+                    </button>
+                    <a href="/history" class="btn btn-secondary flex-grow-1" style="flex-basis: 30%;">
                         <iconify-icon icon="ph:clock-counter-clockwise-bold"></iconify-icon> 翻翻旧账
+                    </a>
+                </div>
+                <!-- 继续上次阅读 -->
+                <div id="resume-reading-row" class="mt-3" style="display:none;">
+                    <a id="resume-reading-btn" href="#" class="btn btn-success w-100"
+                        style="font-weight:900;font-size:1rem;border:4px solid #1a1a1a;box-shadow:6px 6px 0 #1a1a1a;">
+                        <iconify-icon icon="ph:bookmark-simple-bold"></iconify-icon> 继续上次阅读
                     </a>
                 </div>
             </form>
@@ -569,6 +580,35 @@
         function viewArticle(filename) {
             window.location.href = `/article/${filename}`;
         }
+
+        // --- 继续上次阅读 ---
+        (function () {
+            try {
+                const lastChapter = localStorage.getItem('last-read-chapter');
+                if (lastChapter) {
+                    const row = document.getElementById('resume-reading-row');
+                    const btn = document.getElementById('resume-reading-btn');
+                    row.style.display = 'block';
+                    if (lastChapter.startsWith('ONLINE:')) {
+                        btn.href = '/read_online?url=' + encodeURIComponent(lastChapter.substring(7));
+                    } else {
+                        btn.href = '/article/' + lastChapter;
+                    }
+                }
+            } catch (e) { }
+        })();
+
+        // --- 在线阅读按钮功能 ---
+        document.getElementById('btn-online').addEventListener('click', function () {
+            const urlInput = document.getElementById('url').value.trim();
+            if (!urlInput) {
+                alert('请先输入你要在线阅读的网页链接！');
+                document.getElementById('url').focus();
+                return;
+            }
+            // 直接跳转到在线阅读器
+            window.location.href = '/read_online?url=' + encodeURIComponent(urlInput);
+        });
     </script>
 </body>
 

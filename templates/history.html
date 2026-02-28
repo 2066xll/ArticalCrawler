@@ -301,7 +301,9 @@
                                         </div>
                                     </div>
                                     <div class="mt-2 fw-bold">
-                                        <div><iconify-icon icon="ph:link-bold"></iconify-icon> <a href="${task.url}" target="_blank" class="text-dark">${task.url}</a></div>
+                                        <div><iconify-icon icon="ph:link-bold"></iconify-icon> <a href="${task.url}" target="_blank" class="text-dark">${task.url}</a>
+                                            <a href="/read_online?url=${encodeURIComponent(task.url)}" class="btn btn-sm py-0 px-2 ms-2" style="background:#ffc107;color:#1a1a1a;border:2px solid #1a1a1a;font-weight:800;font-size:0.8rem;">在线阅读</a>
+                                        </div>
                                         <div class="mt-1 d-flex gap-3 text-secondary" style="font-size: 0.9rem;">
                                             <span>前进: ${task.next_chapters} 单</span>
                                             <span>后退: ${task.prev_chapters} 单</span>

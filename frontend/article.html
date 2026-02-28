@@ -875,11 +875,16 @@
             </div>
 
             <div class="toggle-row">
-                <span class="toggle-label" style="display:flex;align-items:center;gap:0.5rem">自动下滑速度
-                    <input type="range" class="small-range" min="1" max="10" step="1" id="autoScrollSpeed"
-                        oninput="setAutoScrollSpeed(this.value)" style="width:60px">
+                <span class="toggle-label" style="display:flex;align-items:center;gap:0.5rem">翻页间隔(秒)
+                    <input type="range" class="small-range" min="1" max="30" step="1" id="autoFlipInterval"
+                        oninput="setAutoFlipInterval(this.value)" style="width:80px">
                 </span>
-                <span class="slider-val" id="scrollSpeedVal" style="font-size:0.8rem">3x</span>
+                <span class="slider-val" id="flipIntervalVal" style="font-size:0.8rem">5s</span>
+            </div>
+            <div class="toggle-row">
+                <span class="toggle-label">自适应翻页间隔</span>
+                <label class="toggle-switch"><input type="checkbox" id="toggleAutoFlipAdaptive" checked
+                        onchange="toggleFeature('autoFlipAdaptive')"><span class="toggle-track"></span></label>
             </div>
 
             <div class="toggle-row">
@@ -1016,6 +1021,19 @@
         .toast-notification.visible {
             top: 4rem;
         }
+
+        /* 全屏沉浸模式：整个阅读区填充屏幕 */
+        .reader-wrap:fullscreen {
+            overflow-y: auto;
+            background: var(--bg-color);
+            padding: 0;
+        }
+
+        .reader-wrap:-webkit-full-screen {
+            overflow-y: auto;
+            background: var(--bg-color);
+            padding: 0;
+        }
     </style>
 
     <script>
@@ -1029,7 +1047,7 @@
                 theme: 'light', fontSize: 18, spacing: '2.0',
                 showProgress: true, showMeta: true, showNav: true, showToolbar: true, showBorders: true, showBackToTop: true,
                 rememberProgress: true, autoTurn: false,
-                autoScrollSpeed: 3, autoTurnSeconds: 3, showToast: true, showBanner: true
+                autoFlipInterval: 5, autoFlipAdaptive: true, autoTurnSeconds: 3, showToast: true, showBanner: true
             };
             let prefs = Object.assign({}, defaults);
 
@@ -1113,8 +1131,9 @@
                 document.getElementById('toggleShowToast').checked = prefs.showToast;
                 document.getElementById('toggleShowBanner').checked = prefs.showBanner;
 
-                document.getElementById('autoScrollSpeed').value = prefs.autoScrollSpeed;
-                document.getElementById('scrollSpeedVal').textContent = prefs.autoScrollSpeed + 'x';
+                document.getElementById('autoFlipInterval').value = prefs.autoFlipInterval;
+                document.getElementById('flipIntervalVal').textContent = prefs.autoFlipInterval + 's';
+                document.getElementById('toggleAutoFlipAdaptive').checked = prefs.autoFlipAdaptive;
                 document.getElementById('autoTurnSeconds').value = prefs.autoTurnSeconds;
                 document.getElementById('turnSecondsVal').textContent = prefs.autoTurnSeconds + 's';
 
@@ -1177,16 +1196,17 @@
                     rememberProgress: 'toggleRememberProgress',
                     autoTurn: 'toggleAutoTurn',
                     showToast: 'toggleShowToast',
-                    showBanner: 'toggleShowBanner'
+                    showBanner: 'toggleShowBanner',
+                    autoFlipAdaptive: 'toggleAutoFlipAdaptive'
                 };
                 const cb = document.getElementById(map[feat]);
                 prefs[feat] = cb.checked;
                 savePrefs();
             };
 
-            window.setAutoScrollSpeed = function (val) {
-                prefs.autoScrollSpeed = parseInt(val);
-                document.getElementById('scrollSpeedVal').textContent = val + 'x';
+            window.setAutoFlipInterval = function (val) {
+                prefs.autoFlipInterval = parseInt(val);
+                document.getElementById('flipIntervalVal').textContent = val + 's';
                 savePrefs();
             };
 
@@ -1196,13 +1216,16 @@
                 savePrefs();
             };
 
-            // ========== Fullscreen ==========
+            // ========== Fullscreen (沉浸模式：仅显示阅读区) ==========
             window.toggleFullScreen = function () {
+                const readerEl = document.querySelector('.reader-wrap');
                 if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(err => {
+                    (readerEl || document.documentElement).requestFullscreen().catch(err => {
                         console.error(`全屏请求失败: ${err.message}`);
                     });
                     document.getElementById('fullscreenIcon').setAttribute('icon', 'ph:corners-in-bold');
+                    // 全屏时显示工具栏浮层确保可控
+                    document.getElementById('toolbar').classList.remove('hidden');
                 } else {
                     if (document.exitFullscreen) {
                         document.exitFullscreen();
@@ -1210,6 +1233,12 @@
                     }
                 }
             };
+            // 监听退出全屏事件恢复工具栏
+            document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement) {
+                    if (!prefs.showToolbar) document.getElementById('toolbar').classList.add('hidden');
+                }
+            });
 
             // ========== Reading Progress ==========
             let _progressSaveTimer = null;
@@ -1261,38 +1290,65 @@
                 setTimeout(() => t.classList.remove('visible'), 2500);
             }
 
-            // ========== Auto Scroll (Auto Read) ==========
-            let _autoScrollTimer = null;
+            // ========== Auto Flip (间隔翻页式自动阅读) ==========
+            let _autoFlipTimer = null;
+
+            function getAdaptiveInterval() {
+                if (!prefs.autoFlipAdaptive) return prefs.autoFlipInterval * 1000;
+                // 根据当前可视区域内的文字量自适应：大约每 200 字 1 秒，最少 2 秒
+                const bodyEl = document.getElementById('articleBody');
+                if (!bodyEl) return prefs.autoFlipInterval * 1000;
+                const viewH = window.innerHeight;
+                const scrollTop = window.scrollY;
+                const scrollBottom = scrollTop + viewH;
+                // 估算可视区域内的字数
+                let visibleText = '';
+                const paras = bodyEl.querySelectorAll('p');
+                paras.forEach(p => {
+                    const rect = p.getBoundingClientRect();
+                    if (rect.bottom > 0 && rect.top < viewH) {
+                        visibleText += p.textContent;
+                    }
+                });
+                const charCount = visibleText.length;
+                const adaptiveSec = Math.max(2, Math.round(charCount / 200));
+                return adaptiveSec * 1000;
+            }
+
+            function scheduleNextFlip() {
+                if (!_autoFlipTimer) return;
+                const interval = getAdaptiveInterval();
+                _autoFlipTimer = setTimeout(() => {
+                    // 翻一屏
+                    const docH = document.documentElement.scrollHeight;
+                    const scrollBottom = window.scrollY + window.innerHeight;
+                    if (scrollBottom >= docH - 5) {
+                        // 已到底部
+                        stopAutoFlip();
+                        if (prefs.autoTurn && nextArticle) startAutoTurn();
+                        return;
+                    }
+                    window.scrollBy({ top: window.innerHeight * 0.85, behavior: 'smooth' });
+                    scheduleNextFlip();
+                }, interval);
+            }
+
+            function stopAutoFlip() {
+                if (_autoFlipTimer) { clearTimeout(_autoFlipTimer); _autoFlipTimer = null; }
+                document.getElementById('autoReadIcon').setAttribute('icon', 'ph:play-bold');
+            }
 
             window.toggleAutoScroll = function () {
                 const btnIcon = document.getElementById('autoReadIcon');
-                if (_autoScrollTimer) {
-                    clearInterval(_autoScrollTimer);
-                    _autoScrollTimer = null;
-                    btnIcon.setAttribute('icon', 'ph:play-bold');
+                if (_autoFlipTimer) {
+                    stopAutoFlip();
                     showToast('自动阅读已暂停');
                 } else {
-                    // Start auto scrolling
                     btnIcon.setAttribute('icon', 'ph:pause-bold');
-                    showToast(`开始自动阅读 (速度: ${prefs.autoScrollSpeed}x)`);
-
-                    _autoScrollTimer = setInterval(() => {
-                        // Calculate scroll delta based on speed (1-10)
-                        // Speed 1: ~1px per 40ms, Speed 10: ~10px per 40ms
-                        const delta = prefs.autoScrollSpeed * 1.5;
-                        window.scrollBy({ top: delta, behavior: 'auto' });
-
-                        // Check if bottom reached (allow some tolerance)
-                        const docH = document.documentElement.scrollHeight;
-                        const scrollBottom = window.scrollY + window.innerHeight;
-                        if (scrollBottom >= docH - 5) {
-                            // Reached bottom, clear scroll and check auto turn
-                            toggleAutoScroll();
-                            if (prefs.autoTurn && nextArticle) {
-                                startAutoTurn();
-                            }
-                        }
-                    }, 40); // 25fps smooth scroll
+                    const sec = prefs.autoFlipAdaptive ? '自适应' : prefs.autoFlipInterval + 's';
+                    showToast(`开始自动阅读 (间隔: ${sec})`);
+                    _autoFlipTimer = true; // sentinel
+                    scheduleNextFlip();
                 }
             };
 
@@ -1301,7 +1357,7 @@
             let _autoTurnCountdown = 3;
 
             function checkAutoTurn() {
-                if (!prefs.autoTurn || !nextArticle || _autoScrollTimer) return; // 自动下拉状态下不处理此逻辑，由下拉模块统一调度
+                if (!prefs.autoTurn || !nextArticle || _autoFlipTimer) return; // 自动翻页状态下不处理此逻辑，由翻页模块统一调度
                 const docH = document.documentElement.scrollHeight;
                 const scrollBottom = window.scrollY + window.innerHeight;
                 if (scrollBottom >= docH - 150) {
@@ -1464,6 +1520,8 @@
                     window.scrollTo({ top: 0 });
                     updateProgress();
                     applyPrefs();
+                    // 保存当前章节作为“上次阅读”
+                    try { localStorage.setItem('last-read-chapter', filePath); } catch (e) { }
                     // 恢复阅读进度（在 applyPrefs 之后、内容渲染后）
                     setTimeout(() => restoreScrollPosition(), 200);
                 } catch (e) { showError('网络请求失败: ' + e.message); }
