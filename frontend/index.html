@@ -592,7 +592,9 @@
                     if (lastChapter.startsWith('ONLINE:')) {
                         btn.href = '/read_online?url=' + encodeURIComponent(lastChapter.substring(7));
                     } else {
-                        btn.href = '/article/' + lastChapter;
+                        // 去掉开头的 / 防止 /article//Users/... 双斜杠
+                        const cleanPath = lastChapter.startsWith('/') ? lastChapter.substring(1) : lastChapter;
+                        btn.href = '/article/' + cleanPath;
                     }
                 }
             } catch (e) { }

@@ -1508,8 +1508,9 @@
 
                     document.getElementById('articleBody').innerHTML = extractBody(data.content);
 
-                    prevArticle = data.prev_article;
-                    nextArticle = data.next_article;
+                    // 规范化路径：去掉开头 /，防止绝对路径生成双斜杠URL
+                    prevArticle = data.prev_article ? (data.prev_article.startsWith('/') ? data.prev_article.substring(1) : data.prev_article) : null;
+                    nextArticle = data.next_article ? (data.next_article.startsWith('/') ? data.next_article.substring(1) : data.next_article) : null;
                     chapterList = data.chapter_list || [];
                     setupNav();
                     renderToc(chapterList, data.filename);
@@ -1541,8 +1542,9 @@
 
                 if (prevArticle) {
                     pb.classList.remove('disabled');
-                    pb.href = isOnline ? '/read_online?url=' + encodeURIComponent(prevArticle) : '/article/' + prevArticle;
-                    pb.onclick = function (e) { e.preventDefault(); navigateTo(isOnline ? 'ONLINE:' + prevArticle : prevArticle) };
+                    const prevFp = isOnline ? prevArticle : normalizeFilePath(prevArticle);
+                    pb.href = isOnline ? '/read_online?url=' + encodeURIComponent(prevFp) : '/article/' + prevFp;
+                    pb.onclick = function (e) { e.preventDefault(); navigateTo(isOnline ? 'ONLINE:' + prevFp : prevFp) };
                     ptb.disabled = false;
                 } else {
                     pb.classList.add('disabled'); pb.removeAttribute('href'); pb.onclick = null;
@@ -1551,22 +1553,30 @@
 
                 if (nextArticle) {
                     nb.classList.remove('disabled');
-                    nb.href = isOnline ? '/read_online?url=' + encodeURIComponent(nextArticle) : '/article/' + nextArticle;
-                    nb.onclick = function (e) { e.preventDefault(); navigateTo(isOnline ? 'ONLINE:' + nextArticle : nextArticle) };
+                    const nextFp = isOnline ? nextArticle : normalizeFilePath(nextArticle);
+                    nb.href = isOnline ? '/read_online?url=' + encodeURIComponent(nextFp) : '/article/' + nextFp;
+                    nb.onclick = function (e) { e.preventDefault(); navigateTo(isOnline ? 'ONLINE:' + nextFp : nextFp) };
                     ntb.disabled = false;
                 } else {
                     nb.classList.add('disabled'); nb.removeAttribute('href'); nb.onclick = null;
                     ntb.disabled = true;
                 }
             }
-            window.navPrev = function () { if (prevArticle) navigateTo(getFilePath().startsWith('ONLINE:') ? 'ONLINE:' + prevArticle : prevArticle); };
-            window.navNext = function () { if (nextArticle) navigateTo(getFilePath().startsWith('ONLINE:') ? 'ONLINE:' + nextArticle : nextArticle); };
+            // 规范化本地文件路径：去掉开头的 /，避免 /article//Users/... 双斜杠 308 重定向
+            function normalizeFilePath(fp) {
+                if (!fp || fp.startsWith('ONLINE:')) return fp;
+                return fp.startsWith('/') ? fp.substring(1) : fp;
+            }
+            window.navPrev = function () { if (prevArticle) navigateTo(getFilePath().startsWith('ONLINE:') ? 'ONLINE:' + prevArticle : normalizeFilePath(prevArticle)); };
+            window.navNext = function () { if (nextArticle) navigateTo(getFilePath().startsWith('ONLINE:') ? 'ONLINE:' + nextArticle : normalizeFilePath(nextArticle)); };
 
             function navigateTo(fp) {
                 if (fp.startsWith('ONLINE:')) {
                     history.pushState(null, '', '/read_online?url=' + encodeURIComponent(fp.substring(7)));
                 } else {
-                    history.pushState(null, '', '/article/' + fp);
+                    const nfp = normalizeFilePath(fp);
+                    history.pushState(null, '', '/article/' + nfp);
+                    fp = nfp;
                 }
                 loadArticle(fp);
             }

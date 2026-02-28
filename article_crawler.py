@@ -154,7 +154,6 @@ def parse_article(html_content, url):
     
     # 特殊处理bqgns.com网站，正文在window.__NUXT__对象中
     if 'bqgns.com' in url:
-        import re
         # 从HTML中提取window.__NUXT__对象
         nuxt_match = re.search(r'window\.__NUXT__=(.*?);</script>', html_content, re.DOTALL)
         if nuxt_match:
@@ -371,8 +370,8 @@ def parse_article(html_content, url):
                 next_chapter_url = next_link['href']
                 # 如果是相对链接，转换为绝对链接
                 if not next_chapter_url.startswith('http'):
-                    from urllib.parse import urljoin
-                    next_chapter_url = urljoin(url, next_chapter_url)
+                    from urllib.parse import urljoin as _urljoin
+                    next_chapter_url = _urljoin(url, next_chapter_url)
                 logger.info(f"通过bqgns.com特定选择器找到下一章链接: {next_chapter_url}")
         except Exception as e:
             logger.debug(f"尝试bqgns.com选择器失败: {e}")

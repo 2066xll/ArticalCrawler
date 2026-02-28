@@ -15,6 +15,10 @@ import traceback
 
 from article_crawler import fetch_page, parse_article
 
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # 添加缓存支持
 from functools import wraps
 import hashlib
@@ -96,16 +100,18 @@ def rate_limit_decorator(func):
 
 # PyInstaller 打包支持：检测运行环境
 if getattr(sys, 'frozen', False):
-    # 打包后：资源在 sys._MEIPASS 临时目录中
-    BASE_DIR = sys._MEIPASS  # type: ignore[attr-defined]
+    # 打包后：资源在 sys._MEIPASS 临时目录中（只读）
+    BASE_DIR = os.path.dirname(sys.executable)  # 可执行文件所在目录（可写）
+    RESOURCE_DIR = sys._MEIPASS  # type: ignore[attr-defined]  # 包内资源目录
 else:
     # 开发环境：资源在脚本所在目录
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    RESOURCE_DIR = BASE_DIR
 
 app = Flask(
     __name__,
-    template_folder=os.path.join(BASE_DIR, 'templates'),
-    static_folder=os.path.join(BASE_DIR, 'static'),
+    template_folder=os.path.join(RESOURCE_DIR, 'templates'),
+    static_folder=os.path.join(RESOURCE_DIR, 'static'),
 )
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
@@ -128,51 +134,72 @@ def handle_root_options():
     return make_response('', 204)
 
 # 配置静态文件目录
-FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
+FRONTEND_DIR = os.path.join(RESOURCE_DIR, 'frontend')
 app.static_folder = FRONTEND_DIR
 app.static_url_path = '/static'
 
 # 任务状态存储
 tasks = {}
 
-# 历史记录文件
-HISTORY_FILE = 'data/history.json'
+# 历史记录文件（使用绝对路径，避免相对路径问题）
+HISTORY_FILE = os.path.join(BASE_DIR, 'data', 'history.json')
 # 任务状态文件
-TASKS_FILE = 'data/tasks.json'
+TASKS_FILE = os.path.join(BASE_DIR, 'data', 'tasks.json')
 
-# 确保data目录存在
-os.makedirs('data', exist_ok=True)
+# 确保 data 目录存在
+try:
+    os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
+except Exception:
+    pass
 
 # 初始化历史记录文件
-if not os.path.exists(HISTORY_FILE):
-    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-        json.dump([], f)
+try:
+    if not os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump([], f)
+except Exception as e:
+    logger.warning(f'无法初始化历史记录文件: {e}')
 
 # 初始化任务状态文件
-if not os.path.exists(TASKS_FILE):
-    with open(TASKS_FILE, 'w', encoding='utf-8') as f:
-        json.dump({}, f)
+try:
+    if not os.path.exists(TASKS_FILE):
+        with open(TASKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump({}, f)
+except Exception as e:
+    logger.warning(f'无法初始化任务状态文件: {e}')
 
 # 加载历史记录
 def load_history():
-    with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    try:
+        with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return []
 
 # 保存历史记录
 def save_history(history):
-    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    try:
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f'保存历史记录失败: {e}')
 
 # 加载任务状态
 def load_tasks():
     global tasks
-    with open(TASKS_FILE, 'r', encoding='utf-8') as f:
-        tasks = json.load(f)
+    try:
+        with open(TASKS_FILE, 'r', encoding='utf-8') as f:
+            tasks = json.load(f)
+    except Exception:
+        tasks = {}
 
 # 保存任务状态
 def save_tasks():
-    with open(TASKS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(tasks, f, ensure_ascii=False, indent=2)
+    try:
+        with open(TASKS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(tasks, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.warning(f'保存任务状态失败: {e}')
 
 # 加载任务状态
 load_tasks()
@@ -536,19 +563,26 @@ def parse_online():
             if not html:
                 return jsonify({'success': False, 'error': '无法获取网页内容'}), 500
                 
-            title, content, next_url, prev_url, author_info, publish_time = parse_article(html, url)
+            result = parse_article(html, url)
+            title = result.get('title', '')
+            content = result.get('content', '')
+            next_url = result.get('next_chapter_url', '')
+            prev_url = result.get('prev_chapter_url', '')
+            author_info = result.get('author', '')
+            publish_time = result.get('publish_time', '')
             
             if not title and not content:
-                return jsonify({'success': False, 'error': '无法解析文章内容，可能是不支持的网站'}, 500)
+                return jsonify({'success': False, 'error': '无法解析文章内容，可能是不支持的网站'}), 500
                 
             # 组装返回数据，符合现有阅读器接口
+            header = f"{title}\n{author_info}\n原文链接: {url}\n{'='*50}\n\n" if (title or author_info) else ""
             return jsonify({
                 'success': True,
                 'filename': url,
                 'file_type': 'online',
-                'content': f"{title}\n{author_info}\n原文链接: {url}\n==================================================\n\n{content}",
-                'prev_article': prev_url,
-                'next_article': next_url,
+                'content': header + content,
+                'prev_article': prev_url or None,
+                'next_article': next_url or None,
                 'chapter_list': [] # 在线模式暂不提供完整目录
             })
             
