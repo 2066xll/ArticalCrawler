@@ -35,3 +35,9 @@ Thumbs.db
 build/
 dist/
 *.egg-info/
+
+# 本地运行和缓存
+.venv/
+articles/
+归档/
+get-pip.py

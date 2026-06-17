@@ -31,8 +31,15 @@ def parse_args():
     return parser.parse_args()
 
 
-# 全局会话（保持 Cookie，模拟真实浏览行为）
-_session = requests.Session()
+# 线程本地会话（每个线程独立 Session，避免多线程 Cookie 串扰）
+import threading as _threading
+_thread_local = _threading.local()
+
+def _get_session():
+    """获取当前线程专用的 requests.Session"""
+    if not hasattr(_thread_local, 'session'):
+        _thread_local.session = requests.Session()
+    return _thread_local.session
 
 # 常用 User-Agent 列表
 _user_agents = [
@@ -78,7 +85,7 @@ def fetch_page(url):
             # 随机延迟（1~3 秒），模拟人类行为
             time.sleep(random.uniform(1.0, 3.0))
             
-            response = _session.get(url, headers=headers, timeout=20)
+            response = _get_session().get(url, headers=headers, timeout=20)
             
             # 针对 403/429 使用更长的退避
             if response.status_code in (403, 429):
@@ -181,20 +188,16 @@ def parse_article(html_content, url):
                             if child.name is None:  # 文本节点
                                 text = child.strip()
                                 if text:
-                                    # 移除多余的"go"字
-                                    text = text.replace('go', '')
                                     paragraphs.append(text)
                             elif child.name in ['p', 'div', 'br']:  # 段落相关标签
                                 text = child.get_text(strip=True)
                                 if text:
-                                    # 移除多余的"go"字
-                                    text = text.replace('go', '')
                                     paragraphs.append(text)
                         
                         if paragraphs:
                             content = '\n\n'.join(paragraphs)
-                            # 再次清理整个内容，确保没有遗漏的"go"字
-                            content = content.replace('go', '')
+                            # 精确移除 bqgns.com 注入的 "go" 水印词（仅匹配独立单词，避免破坏正文）
+                            content = re.sub(r'(?<![\u4e00-\u9fff\w])go(?![\u4e00-\u9fff\w])', '', content)
                             break
             except Exception as e:
                 logger.error(f"解析bqgns.com的正文内容失败: {e}")
@@ -609,12 +612,12 @@ def parse_article(html_content, url):
     else:
         logger.warning(f"未找到上一章链接")
         
-    # 清理下一章和上一章 URL 中的无效锚点和查询参数
+    # 只清理无效锚点（fragment），保留 query 参数（部分网站章节 URL 依赖 query）
     from urllib.parse import urlparse, urlunparse
     def clean_url(u):
         if not u: return u
         parsed = urlparse(u)
-        return urlunparse(parsed._replace(query='', fragment=''))
+        return urlunparse(parsed._replace(fragment=''))  # 只去 fragment，保留 query
     
     next_chapter_url = clean_url(next_chapter_url)
     prev_chapter_url = clean_url(prev_chapter_url)
@@ -914,6 +917,9 @@ def main():
         # 检查URL是否已爬取
         if current_url in crawled_urls:
             logger.info(f"URL {current_url} 已爬取，跳过")
+            # 只请求一次，复用结果
+            html_content = fetch_page(current_url)
+            current_article = parse_article(html_content, current_url)
         else:
             # 获取网页内容
             html_content = fetch_page(current_url)
@@ -936,9 +942,8 @@ def main():
             if chapter_num is not None:
                 crawled_chapters.add(chapter_num)
             crawled_urls.add(current_url)
-        
-        # 保存当前章节的信息，用于后续爬取
-        current_article = parse_article(fetch_page(current_url), current_url)
+            # 保存当前章节信息，用于后续爬取（复用已解析结果，避免重复请求）
+            current_article = article
     except Exception as e:
         logger.error(f"爬取当前章节失败: {e}")
         logger.info("爬取任务结束")
@@ -960,9 +965,10 @@ def main():
                 # 检查URL是否已爬取
                 if prev_url in crawled_urls:
                     logger.info(f"URL {prev_url} 已爬取，跳过")
-                    # 获取上一章链接继续爬取
-                    if parse_article(fetch_page(prev_url), prev_url)['prev_chapter_url']:
-                        prev_url = parse_article(fetch_page(prev_url), prev_url)['prev_chapter_url']
+                    # 只请求一次，复用结果获取上一章链接
+                    _skip_article = parse_article(fetch_page(prev_url), prev_url)
+                    if _skip_article['prev_chapter_url']:
+                        prev_url = _skip_article['prev_chapter_url']
                     else:
                         logger.warning(f"未找到上一章链接，向前爬取结束")
                         break
@@ -1023,9 +1029,14 @@ def main():
                 # 检查URL是否已爬取
                 if next_url in crawled_urls:
                     logger.info(f"URL {next_url} 已爬取，跳过")
-                    # 直接跳过，继续下一个URL
-                    # 无法获取下一章链接，因为没有爬取当前URL的内容
-                    next_chapters_fetched += 1
+                    # 必须获取下一章链接，否则 next_url 永远不更新会死循环
+                    _skip_article = parse_article(fetch_page(next_url), next_url)
+                    if _skip_article['next_chapter_url']:
+                        next_url = _skip_article['next_chapter_url']
+                        next_chapters_fetched += 1  # 跳过也算推进一章
+                    else:
+                        logger.warning(f"已爬取章节 {next_url} 无下一章链接，向后爬取结束")
+                        break
                     continue
                 
                 # 获取网页内容

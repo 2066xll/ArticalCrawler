@@ -17,6 +17,59 @@
             --shadow-offset: 6px;
         }
 
+        [data-theme="dark"] {
+            --bg-color: #1e1d1b;
+            --border-color: #7a7571;
+            --card-bg: #2d2b28;
+            --text-color: #d1ccc8;
+            --input-bg: #252321;
+            --main-accent: #c85a5a;
+        }
+
+        [data-theme="dark"] .empty-state {
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        [data-theme="dark"] .badge-brutal {
+            background: #1e1d1b;
+            color: #d56b6b;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .btn {
+            background-color: #c4a050;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn:hover {
+            background-color: #b08d40;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .badge.bg-dark {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+            border: 2px solid var(--border-color);
+        }
+
+        [data-theme="dark"] .text-dark {
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] .bg-light {
+            background-color: #252321 !important;
+            color: var(--text-color) !important;
+        }
+
+        [data-theme="dark"] .border-dark {
+            border-color: var(--border-color) !important;
+        }
+
+        [data-theme="dark"] .border-bottom.border-dark {
+            border-bottom-color: var(--border-color) !important;
+        }
+
         body {
             background-color: var(--bg-color);
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
@@ -199,13 +252,40 @@
 </head>
 
 <body>
+    <script>
+        (function() {
+            let savedTheme = 'light';
+            try {
+                const s = localStorage.getItem('reader-prefs');
+                if (s) {
+                    const prefs = JSON.parse(s);
+                    if (prefs && prefs.theme) {
+                        savedTheme = prefs.theme;
+                    }
+                }
+            } catch (e) {}
+            
+            if (savedTheme === 'light') {
+                savedTheme = localStorage.getItem('home-theme') || 'light';
+            }
+            
+            if (savedTheme === 'dark' || savedTheme === 'pure-black') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
     <div class="container">
 
         <div class="page-header">
             <h1 class="page-title"><iconify-icon icon="ph:archive-box-bold"></iconify-icon> 战绩仓库</h1>
-            <a href="/" class="btn">
-                <iconify-icon icon="ph:house-bold"></iconify-icon> 返回干活
-            </a>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn" id="theme-toggle" onclick="toggleTheme()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color); background-color: transparent;" title="切换主题">
+                    <iconify-icon icon="ph:sun-bold" id="theme-icon" style="font-size: 1.2rem; display: flex; align-items: center;"></iconify-icon>
+                </button>
+                <a href="/" class="btn" style="box-shadow: 3px 3px 0 var(--border-color);">
+                    <iconify-icon icon="ph:house-bold"></iconify-icon> 返回干活
+                </a>
+            </div>
         </div>
 
         <div id="loading" class="empty-state">
@@ -328,6 +408,52 @@
                     `;
                 });
         }
+
+        // --- 历史页面深色模式切换 ---
+        window.toggleTheme = function () {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('home-theme', newTheme);
+            
+            try {
+                const s = localStorage.getItem('reader-prefs');
+                let prefs = s ? JSON.parse(s) : {};
+                prefs.theme = newTheme;
+                localStorage.setItem('reader-prefs', JSON.stringify(prefs));
+            } catch (e) {}
+            
+            updateThemeIcon(newTheme);
+        };
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            if (!icon) return;
+            if (theme === 'dark' || theme === 'pure-black') {
+                icon.setAttribute('icon', 'ph:moon-bold');
+            } else {
+                icon.setAttribute('icon', 'ph:sun-bold');
+            }
+        }
+
+        // Apply theme icon on load
+        document.addEventListener('DOMContentLoaded', () => {
+            let savedTheme = 'light';
+            try {
+                const s = localStorage.getItem('reader-prefs');
+                if (s) {
+                    const prefs = JSON.parse(s);
+                    if (prefs && prefs.theme) {
+                        savedTheme = prefs.theme;
+                    }
+                }
+            } catch (e) {}
+            if (savedTheme === 'light') {
+                savedTheme = localStorage.getItem('home-theme') || 'light';
+            }
+            updateThemeIcon(savedTheme);
+        });
     </script>
 </body>
 

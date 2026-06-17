@@ -72,20 +72,37 @@
         }
 
         [data-theme="dark"] {
-            --bg-color: #1a1a2e;
-            --card-bg: #16213e;
-            --text-color: #e0d8c8;
-            --text-muted: #8a8a9a;
-            --border-color: #e0d8c8;
+            --bg-color: #1e1d1b;
+            --card-bg: #2d2b28;
+            --text-color: #d1ccc8;
+            --text-muted: #8c8580;
+            --border-color: #7a7571;
+            --accent: #c85a5a;
+            --accent-hover: #b84a4a;
+            --btn-bg: #c4a050;
+            --btn-bg-hover: #b08d40;
+            --meta-bg: #252321;
+            --panel-bg: #2d2b28;
+            --overlay-bg: rgba(0, 0, 0, 0.65);
+            --toc-active: #252321;
+            --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+        }
+
+        [data-theme="pure-black"] {
+            --bg-color: #000000;
+            --card-bg: #000000;
+            --text-color: #e0e0e0;
+            --text-muted: #888888;
+            --border-color: #444444;
             --accent: #ff6b6b;
             --accent-hover: #ff5252;
-            --btn-bg: #e6c300;
-            --btn-bg-hover: #d4b300;
-            --meta-bg: #0f3460;
-            --panel-bg: #16213e;
-            --overlay-bg: rgba(0, 0, 0, 0.55);
-            --toc-active: #0f3460;
-            --scrollbar-thumb: rgba(255, 255, 255, 0.15);
+            --btn-bg: #333333;
+            --btn-bg-hover: #4d4d4d;
+            --meta-bg: #111111;
+            --panel-bg: #000000;
+            --overlay-bg: rgba(255, 255, 255, 0.15);
+            --toc-active: #1a1a1a;
+            --scrollbar-thumb: rgba(255, 255, 255, 0.2);
         }
 
         /* =====================================================
@@ -258,6 +275,18 @@
             transform: translateX(0)
         }
 
+        #scannerDrawer {
+            left: auto;
+            right: 0;
+            transform: translateX(100%);
+            border-right: none;
+            border-left: 4px solid var(--border-color);
+        }
+
+        #scannerDrawer.open {
+            transform: translateX(0) !important;
+        }
+
         .toc-header {
             padding: 1rem;
             border-bottom: 3px solid var(--border-color);
@@ -409,6 +438,12 @@
         .swatch[data-theme="dark"] {
             background: #1a1a2e;
             color: #e0d8c8
+        }
+
+        .swatch[data-theme="pure-black"] {
+            background: #000000;
+            color: #e0e0e0;
+            border-color: #444444;
         }
 
         /* Slider */
@@ -754,6 +789,9 @@
             <button class="btn btn-ghost" onclick="toggleToc()" title="章节目录">
                 <iconify-icon icon="ph:list-bold"></iconify-icon> 目录
             </button>
+            <button class="btn btn-ghost" onclick="toggleScanner()" title="扫描目录">
+                <iconify-icon icon="ph:magnifying-glass-bold"></iconify-icon> 扫描
+            </button>
             <a href="/" class="btn btn-ghost">
                 <iconify-icon icon="ph:house-bold"></iconify-icon>
             </a>
@@ -791,6 +829,20 @@
         </div>
     </div>
 
+    <!-- Scanner Sidebar -->
+    <div class="toc-overlay" id="scannerOverlay" onclick="toggleScanner()"></div>
+    <div class="toc-drawer" id="scannerDrawer">
+        <div class="toc-header">
+            <span><iconify-icon icon="ph:books-bold"></iconify-icon> 本地书架</span>
+            <button class="btn btn-ghost" onclick="toggleScanner()" style="padding:.2rem .4rem">
+                <iconify-icon icon="ph:x-bold"></iconify-icon>
+            </button>
+        </div>
+        <div class="toc-list" id="scannerList">
+            <div style="padding:1rem;text-align:center;color:var(--text-muted)">自动搜寻书籍中...</div>
+        </div>
+    </div>
+
     <!-- Settings Panel (Safari-style bottom sheet) -->
     <div class="settings-overlay" id="settingsOverlay" onclick="toggleSettings()"></div>
     <div class="settings-panel" id="settingsPanel">
@@ -805,6 +857,7 @@
                 <div class="swatch" data-theme="warm" onclick="setTheme('warm')" title="暖黄"></div>
                 <div class="swatch" data-theme="green" onclick="setTheme('green')" title="护眼绿"></div>
                 <div class="swatch" data-theme="dark" onclick="setTheme('dark')" title="夜幕"></div>
+                <div class="swatch" data-theme="pure-black" onclick="setTheme('pure-black')" title="纯黑"></div>
             </div>
         </div>
 
@@ -1183,6 +1236,70 @@
                 navigateTo(dir + '/' + file);
             };
 
+            // ========== Local Scanner ==========
+            window.toggleScanner = function () {
+                const o = document.getElementById('scannerOverlay'), d = document.getElementById('scannerDrawer');
+                const open = d.classList.contains('open');
+                o.classList.toggle('open', !open); d.classList.toggle('open', !open);
+                if (!open) {
+                    triggerScan(); // Auto-scan when opening
+                }
+            };
+
+            window.triggerScan = async function () {
+                const el = document.getElementById('scannerList');
+                el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted)"><iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 正在搜寻书籍...</div>';
+                try {
+                    const resp = await fetch('/api/scan');
+                    const data = await resp.json();
+                    if (!data.success) {
+                        el.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--accent)">错误: ${data.error}</div>`;
+                        return;
+                    }
+                    if (data.results.length === 0) {
+                        el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted)">本地书架是空的</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    data.results.forEach((res, index) => {
+                        const bookTitle = res.book_title || '未分类';
+                        const fileCount = res.files.length;
+                        html += `
+                            <div class="scanner-dir-group" style="border-bottom: 2px solid var(--border-color);">
+                                <div class="scanner-dir-header" onclick="toggleScanDir(${index})" style="padding: 0.8rem 1rem; font-weight: bold; background: var(--meta-bg); cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-family: monospace;">
+                                    <span>📚 ${bookTitle} (${fileCount}章)</span>
+                                    <iconify-icon icon="ph:caret-down-bold" id="scanner-caret-${index}"></iconify-icon>
+                                </div>
+                                <div class="scanner-dir-files" id="scanner-files-${index}" style="display: none; padding-left: 0.5rem; background: var(--bg-color);">
+                                    ${res.files.map(f => {
+                                        const cleanName = f.replace(/^\d{4}_/, '').replace(/\.[^.]+$/, '');
+                                        const fullPath = res.dir ? (res.dir + '/' + f) : f;
+                                        return `<a class="toc-item" style="padding: 0.5rem 1rem; font-size: 0.8rem; border-bottom: 1px dashed var(--meta-bg); font-family: monospace;" onclick="scanNavigate('${fullPath}')">📄 ${cleanName}</a>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    el.innerHTML = html;
+                } catch (e) {
+                    el.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--accent)">网络错误: ${e.message}</div>`;
+                }
+            };
+
+            window.toggleScanDir = function (idx) {
+                const el = document.getElementById('scanner-files-' + idx);
+                const caret = document.getElementById('scanner-caret-' + idx);
+                const isHidden = el.style.display === 'none';
+                el.style.display = isHidden ? 'block' : 'none';
+                caret.setAttribute('icon', isHidden ? 'ph:caret-up-bold' : 'ph:caret-down-bold');
+            };
+
+            window.scanNavigate = function (fullPath) {
+                toggleScanner();
+                navigateTo(fullPath);
+            };
+
             // ========== Settings Panel ==========
             window.toggleSettings = function () {
                 const o = document.getElementById('settingsOverlay'), p = document.getElementById('settingsPanel');
@@ -1509,8 +1626,13 @@
                     document.getElementById('articleBody').innerHTML = extractBody(data.content);
 
                     // 规范化路径：去掉开头 /，防止绝对路径生成双斜杠URL
-                    prevArticle = data.prev_article ? (data.prev_article.startsWith('/') ? data.prev_article.substring(1) : data.prev_article) : null;
-                    nextArticle = data.next_article ? (data.next_article.startsWith('/') ? data.next_article.substring(1) : data.next_article) : null;
+                    // 同时将空字符串规范为 null，避免空 URL 达到导航按钟
+                    prevArticle = data.prev_article
+                        ? (data.prev_article.startsWith('/') ? data.prev_article.substring(1) : data.prev_article)
+                        : null;
+                    nextArticle = data.next_article
+                        ? (data.next_article.startsWith('/') ? data.next_article.substring(1) : data.next_article)
+                        : null;
                     chapterList = data.chapter_list || [];
                     setupNav();
                     renderToc(chapterList, data.filename);
@@ -1596,6 +1718,7 @@
                     e.preventDefault(); navigateTo(nextArticle);
                 } else if (e.key === 'Escape') {
                     if (document.getElementById('tocDrawer').classList.contains('open')) toggleToc();
+                    if (document.getElementById('scannerDrawer').classList.contains('open')) toggleScanner();
                     if (document.getElementById('settingsPanel').classList.contains('open')) toggleSettings();
                 }
             });

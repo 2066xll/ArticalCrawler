@@ -16,6 +16,94 @@
             --card-bg: #ffffff;
             --text-color: #1a1a1a;
             --shadow-offset: 6px;
+            --input-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1e1d1b;
+            --border-color: #7a7571;
+            --card-bg: #2d2b28;
+            --text-color: #d1ccc8;
+            --input-bg: #252321;
+            --main-accent: #c85a5a;
+        }
+
+        [data-theme="dark"] .btn-primary {
+            background-color: var(--main-accent);
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn-primary:hover {
+            background-color: #d56b6b;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn-secondary {
+            background-color: #c4a050;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn-secondary:hover {
+            background-color: #b08d40;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn-warning {
+            background-color: #c4a050;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn-warning:hover {
+            background-color: #b08d40;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn-danger {
+            background-color: #b38888;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] .btn-danger:hover {
+            background-color: #9e7373;
+            color: #1e1d1b;
+        }
+
+        [data-theme="dark"] #btn-reader {
+            background-color: #8bb892 !important;
+            color: #1e1d1b !important;
+        }
+
+        [data-theme="dark"] #btn-reader:hover {
+            background-color: #7aa580 !important;
+            color: #1e1d1b !important;
+        }
+
+        [data-theme="dark"] #progress-bar {
+            background-color: var(--input-bg);
+        }
+
+        [data-theme="dark"] .alert-info {
+            background-color: #2e3d3e;
+            color: #b2ebf2;
+            border-color: #7a7571;
+        }
+
+        [data-theme="dark"] .alert-primary {
+            background-color: #3e3a2e;
+            color: #ffe082;
+            border-color: #7a7571;
+        }
+
+        [data-theme="dark"] .alert-success {
+            background-color: #2e3e31;
+            color: #a5d6a7;
+            border-color: #7a7571;
+        }
+
+        [data-theme="dark"] .alert-danger {
+            background-color: #3e2e2e;
+            color: #ef9a9a;
+            border-color: #7a7571;
         }
 
         body {
@@ -29,6 +117,7 @@
             padding: 2rem 1rem;
             margin: 0;
             line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
         }
 
         .container {
@@ -98,8 +187,9 @@
             padding: 0.8rem;
             font-size: 1rem;
             font-family: inherit;
-            background: #fff;
-            transition: none;
+            background: var(--input-bg);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
         }
 
         .form-control:focus,
@@ -159,6 +249,28 @@
         .btn-secondary:hover {
             background-color: #ffcc00;
             color: var(--text-color);
+            border-color: var(--border-color);
+        }
+
+        .btn-warning {
+            background-color: #ffd700;
+            color: #1a1a1a;
+        }
+
+        .btn-warning:hover {
+            background-color: #ffcc00;
+            color: #1a1a1a;
+            border-color: var(--border-color);
+        }
+
+        .btn-danger {
+            background-color: #ef9a9a;
+            color: #1a1a1a;
+        }
+
+        .btn-danger:hover {
+            background-color: #e57373;
+            color: #1a1a1a;
             border-color: var(--border-color);
         }
 
@@ -301,6 +413,14 @@
 
 <body>
     <div class="container">
+        <div class="d-flex justify-content-end gap-2 mb-3">
+            <button type="button" class="btn" id="theme-toggle" onclick="toggleTheme()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color);" title="切换主题">
+                <iconify-icon icon="ph:sun-bold" id="theme-icon" style="font-size: 1.2rem; display: flex; align-items: center;"></iconify-icon>
+            </button>
+            <button type="button" class="btn btn-danger" id="shutdown-btn" onclick="shutdownServer()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color);" title="关闭服务器">
+                <iconify-icon icon="ph:power-bold" id="shutdown-icon" style="font-size: 1.2rem; display: flex; align-items: center;"></iconify-icon>
+            </button>
+        </div>
 
         <header class="page-header">
             <h1>文章抓取机器</h1>
@@ -356,19 +476,22 @@
                     <label for="output_dir" class="form-label">
                         <iconify-icon icon="ph:folder-open-bold"></iconify-icon> 存哪儿？
                     </label>
-                    <input type="text" class="form-control" id="output_dir" name="output_dir" value="./output">
-                    <div class="form-text">默认塞进当前目录的 output 文件夹。</div>
+                    <input type="text" class="form-control" id="output_dir" name="output_dir" value="./articles">
+                    <div class="form-text">默认塞进当前目录的 articles 文件夹。</div>
                 </div>
 
                 <div class="d-flex flex-column flex-md-row gap-3 mt-5" style="flex-wrap: wrap;">
-                    <button type="submit" class="btn btn-primary flex-grow-1" style="flex-basis: 30%;">
+                    <button type="submit" class="btn btn-primary flex-grow-1" style="flex-basis: 45%;">
                         <iconify-icon icon="ph:rocket-launch-bold"></iconify-icon> 开搞！
                     </button>
                     <button type="button" class="btn btn-warning flex-grow-1" id="btn-online"
-                        style="flex-basis: 30%; font-weight: bold;">
+                        style="flex-basis: 45%; font-weight: bold;">
                         <iconify-icon icon="ph:book-open-text-bold"></iconify-icon> 在线阅读
                     </button>
-                    <a href="/history" class="btn btn-secondary flex-grow-1" style="flex-basis: 30%;">
+                    <a href="/read_online" class="btn flex-grow-1" id="btn-reader" style="background-color: #a5d6a7; color: #1a1a1a; flex-basis: 45%; text-decoration: none;">
+                        <iconify-icon icon="ph:book-open-bold"></iconify-icon> 进入阅读器
+                    </a>
+                    <a href="/history" class="btn btn-secondary flex-grow-1" style="flex-basis: 45%;">
                         <iconify-icon icon="ph:clock-counter-clockwise-bold"></iconify-icon> 翻翻旧账
                     </a>
                 </div>
@@ -608,9 +731,112 @@
                 document.getElementById('url').focus();
                 return;
             }
-            // 直接跳转到在线阅读器
+            // 直接跳转 to 在线阅读器
             window.location.href = '/read_online?url=' + encodeURIComponent(urlInput);
         });
+
+        // --- 主页深色模式切换 ---
+        window.toggleTheme = function () {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('home-theme', newTheme);
+            
+            // 同步到 reader-prefs
+            try {
+                const s = localStorage.getItem('reader-prefs');
+                let prefs = s ? JSON.parse(s) : {};
+                prefs.theme = newTheme;
+                localStorage.setItem('reader-prefs', JSON.stringify(prefs));
+            } catch (e) {}
+            
+            updateThemeIcon(newTheme);
+        };
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            if (!icon) return;
+            if (theme === 'dark') {
+                icon.setAttribute('icon', 'ph:moon-bold');
+            } else {
+                icon.setAttribute('icon', 'ph:sun-bold');
+            }
+        }
+
+        // 页面加载时自动应用保存的主题
+        (function() {
+            let savedTheme = 'light';
+            try {
+                const s = localStorage.getItem('reader-prefs');
+                if (s) {
+                    const prefs = JSON.parse(s);
+                    if (prefs && prefs.theme) {
+                        savedTheme = prefs.theme;
+                    }
+                }
+            } catch (e) {}
+            
+            // 兼容旧的 home-theme
+            if (savedTheme === 'light') {
+                savedTheme = localStorage.getItem('home-theme') || 'light';
+            }
+            
+            // 如果是夜幕 (dark) 或者纯黑 (pure-black)，我们都认为是 dark
+            if (savedTheme === 'dark' || savedTheme === 'pure-black') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.addEventListener('DOMContentLoaded', () => {
+                    updateThemeIcon('dark');
+                });
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                document.addEventListener('DOMContentLoaded', () => {
+                    updateThemeIcon('light');
+                });
+            }
+        })();
+
+        // --- 关闭服务器 ---
+        window.shutdownServer = function () {
+            if (!confirm('真要关掉后端吗？\n关了这网页就废了。')) {
+                return;
+            }
+            fetch('/api/shutdown', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.body.innerHTML = `
+                            <div class="container" style="max-width: 600px; margin-top: 15vh;">
+                                <div class="brutal-card" style="text-align: center; border: 4px solid var(--border-color); background-color: var(--card-bg); padding: 3rem; box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);">
+                                    <h1 style="color: var(--main-accent); font-size: 4rem; margin-bottom: 1.5rem; display: flex; justify-content: center; align-items: center;">
+                                        <iconify-icon icon="ph:power-bold"></iconify-icon>
+                                    </h1>
+                                    <h2 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 1.5rem;">成功毁灭世界！</h2>
+                                    <p style="margin: 1rem 0; font-size: 1.2rem; font-weight: bold; color: var(--text-color);">后端服务已经被搞死了。</p>
+                                    <p style="font-size: 1.2rem; font-weight: bold; color: var(--text-color);">现在可以关闭浏览器了。</p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        alert('竟然关不掉它：' + data.error);
+                    }
+                })
+                .catch(err => {
+                    // 由于服务器瞬间死掉，连接断开也表明成功关闭了
+                    document.body.innerHTML = `
+                        <div class="container" style="max-width: 600px; margin-top: 15vh;">
+                            <div class="brutal-card" style="text-align: center; border: 4px solid var(--border-color); background-color: var(--card-bg); padding: 3rem; box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);">
+                                <h1 style="color: var(--main-accent); font-size: 4rem; margin-bottom: 1.5rem; display: flex; justify-content: center; align-items: center;">
+                                    <iconify-icon icon="ph:power-bold"></iconify-icon>
+                                </h1>
+                                <h2 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 1.5rem;">成功毁灭世界！</h2>
+                                <p style="margin: 1rem 0; font-size: 1.2rem; font-weight: bold; color: var(--text-color);">后端服务已经被搞死了。</p>
+                                <p style="font-size: 1.2rem; font-weight: bold; color: var(--text-color);">现在可以关闭浏览器了。</p>
+                            </div>
+                        </div>
+                    `;
+                });
+        };
     </script>
 </body>
 
