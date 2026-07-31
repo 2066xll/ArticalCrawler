@@ -466,6 +466,207 @@
             text-align: center
         }
 
+        .btn-step {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 2px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-color);
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: .9rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.15s ease;
+            user-select: none;
+            flex-shrink: 0;
+        }
+
+        .btn-step:hover {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+        }
+
+        .btn-step:active {
+            transform: scale(0.92);
+        }
+
+        /* Stealth Floating Mini Window */
+        .stealth-window {
+            position: fixed;
+            top: 100px;
+            left: 100px;
+            width: 340px;
+            height: 180px;
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            box-shadow: 4px 4px 0 var(--border-color);
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            resize: both;
+            overflow: hidden;
+            min-width: 200px;
+            min-height: 100px;
+            border-radius: 6px;
+            transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .stealth-window.no-border {
+            border: 1px dashed rgba(128,128,128,0.2) !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+
+        .stealth-window.no-border .stealth-header,
+        .stealth-window.no-border .stealth-footer {
+            opacity: 0.2;
+            transition: opacity 0.2s;
+        }
+
+        .stealth-window.no-border:hover .stealth-header,
+        .stealth-window.no-border:hover .stealth-footer {
+            opacity: 1;
+        }
+
+        /* Fake Input Disguise Mode */
+        .stealth-window.disguise-input {
+            background: #ffffff !important;
+            border: 1px solid #ccc !important;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1) !important;
+            border-radius: 4px;
+        }
+
+        [data-theme="dark"] .stealth-window.disguise-input {
+            background: #1e1e1e !important;
+            border: 1px solid #3c3c3c !important;
+            color: #d4d4d4 !important;
+        }
+
+        .stealth-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.3rem 0.6rem;
+            background: var(--meta-bg);
+            border-bottom: 1px solid var(--border-color);
+            cursor: move;
+            user-select: none;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .stealth-title {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .stealth-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+
+        .stealth-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+
+        .stealth-btn:hover {
+            opacity: 1;
+            background: rgba(0,0,0,0.08);
+        }
+
+        .stealth-body {
+            flex: 1;
+            padding: 0.6rem;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-color);
+            word-break: break-word;
+        }
+
+        .stealth-window.disguise-input .stealth-body {
+            font-family: 'Courier New', Monaco, Consolas, monospace !important;
+        }
+
+        .stealth-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.4rem;
+            padding: 0.2rem 0.5rem;
+            background: var(--meta-bg);
+            border-top: 1px solid var(--border-color);
+            font-size: 0.7rem;
+            user-select: none;
+        }
+
+        .stealth-page-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            padding: 1px 4px;
+            font-size: 0.65rem;
+            cursor: pointer;
+            color: var(--text-color);
+        }
+
+        .stealth-page-btn:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-boss-key {
+            padding: 0.25rem 0.6rem;
+            border: 2px solid var(--border-color);
+            background: var(--card-bg);
+            color: var(--text-color);
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-boss-key:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .btn-boss-key.recording {
+            animation: pulse-border 1s infinite alternate;
+            background: #ff4757;
+            color: white;
+            border-color: #ff4757;
+        }
+
+        @keyframes pulse-border {
+            from { opacity: 0.7; }
+            to { opacity: 1; }
+        }
+
         /* Spacing chips */
         .spacing-chips {
             display: flex;
@@ -809,6 +1010,9 @@
             <button class="btn btn-ghost" id="nextToolbarBtn" title="下一章 (→)" disabled onclick="navNext()">
                 <iconify-icon icon="ph:caret-right-bold"></iconify-icon>
             </button>
+            <button class="btn btn-ghost" onclick="toggleStealthWindow()" title="摸鱼/小窗模式 (老板键)">
+                <iconify-icon icon="ph:textbox-bold"></iconify-icon>
+            </button>
             <button class="btn btn-ghost" onclick="toggleSettings()" title="阅读设置">
                 <iconify-icon icon="ph:sliders-horizontal-bold"></iconify-icon>
             </button>
@@ -881,10 +1085,81 @@
         <!-- Line spacing -->
         <div class="settings-section">
             <div class="settings-label"><iconify-icon icon="ph:arrows-out-line-vertical-bold"></iconify-icon> 行距</div>
+            <div class="slider-row" style="margin-bottom: 0.6rem;">
+                <button class="btn-step" onclick="adjustSpacing(-0.1)" title="减小行距" aria-label="减小行距">-</button>
+                <input type="range" min="1.2" max="3.5" step="0.1" id="spacingSlider" oninput="setSpacing(this.value)">
+                <button class="btn-step" onclick="adjustSpacing(0.1)" title="增大行距" aria-label="增大行距">+</button>
+                <span class="slider-val" id="spacingVal">2.0</span>
+            </div>
             <div class="spacing-chips">
                 <div class="chip" data-spacing="1.6" onclick="setSpacing('1.6')">紧凑</div>
                 <div class="chip active" data-spacing="2.0" onclick="setSpacing('2.0')">适中</div>
                 <div class="chip" data-spacing="2.6" onclick="setSpacing('2.6')">宽松</div>
+            </div>
+        </div>
+
+        <!-- Column width -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:arrows-out-line-horizontal-bold"></iconify-icon> 列宽</div>
+            <div class="slider-row" style="margin-bottom: 0.6rem;">
+                <button class="btn-step" onclick="adjustContentWidth(-40)" title="减小列宽" aria-label="减小列宽">-</button>
+                <input type="range" min="540" max="1400" step="20" id="contentWidthSlider" oninput="setContentWidth(this.value)">
+                <button class="btn-step" onclick="adjustContentWidth(40)" title="增大列宽" aria-label="增大列宽">+</button>
+                <span class="slider-val" id="contentWidthVal">780px</span>
+            </div>
+            <div class="spacing-chips" id="widthChips">
+                <div class="chip" data-width="640" onclick="setContentWidth(640)">窄列 640</div>
+                <div class="chip active" data-width="780" onclick="setContentWidth(780)">标准 780</div>
+                <div class="chip" data-width="960" onclick="setContentWidth(960)">宽列 960</div>
+                <div class="chip" data-width="100%" onclick="setContentWidth('100%')">全屏 100%</div>
+            </div>
+        </div>
+
+        <!-- Stealth / Mini-Window Settings -->
+        <div class="settings-section">
+            <div class="settings-label"><iconify-icon icon="ph:ghost-bold"></iconify-icon> 摸鱼 / 隐蔽小窗</div>
+            
+            <div class="toggle-row">
+                <span class="toggle-label">开启隐蔽小窗</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggleStealth" onchange="toggleStealthWindow()">
+                    <span class="toggle-track"></span>
+                </label>
+            </div>
+
+            <div class="toggle-row">
+                <span class="toggle-label">老板键 (一键显隐)</span>
+                <button class="btn-boss-key" id="bossKeyBtn" onclick="startRecordingBossKey()" title="点击重新设置老板键">
+                    <span id="bossKeyText">Alt+B</span>
+                </button>
+            </div>
+
+            <div class="slider-row" style="margin-top: 0.5rem;">
+                <span style="font-size:.75rem;font-weight:bold;">透明度</span>
+                <input type="range" min="0.1" max="1.0" step="0.05" id="stealthOpacitySlider" oninput="setStealthOpacity(this.value)">
+                <span class="slider-val" id="stealthOpacityVal">100%</span>
+            </div>
+
+            <div class="slider-row" style="margin-top: 0.5rem;">
+                <span style="font-size:.75rem;font-weight:bold;">小窗字号</span>
+                <input type="range" min="10" max="22" step="1" id="stealthFontSlider" oninput="setStealthFontSize(this.value)">
+                <span class="slider-val" id="stealthFontVal">12px</span>
+            </div>
+
+            <div class="toggle-row">
+                <span class="toggle-label">无边框透明模式</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggleStealthNoBorder" onchange="setStealthNoBorder(this.checked)">
+                    <span class="toggle-track"></span>
+                </label>
+            </div>
+
+            <div class="toggle-row">
+                <span class="toggle-label">伪装成输入框/代码框</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="toggleStealthDisguise" onchange="setStealthDisguise(this.checked)">
+                    <span class="toggle-track"></span>
+                </label>
             </div>
         </div>
 
@@ -1103,10 +1378,11 @@
             // ========== Preferences ==========
             const PREFS_KEY = 'reader-prefs';
             const defaults = {
-                theme: 'light', fontSize: 18, spacing: '2.0',
+                theme: 'light', fontSize: 18, spacing: '2.0', contentWidth: 780,
                 showProgress: true, showMeta: true, showNav: true, showToolbar: true, showBorders: true, showBackToTop: true,
                 rememberProgress: true, autoTurn: false,
-                autoFlipInterval: 5, autoFlipAdaptive: true, autoTurnSeconds: 3, showToast: true, showBanner: true
+                autoFlipInterval: 5, autoFlipAdaptive: true, autoTurnSeconds: 3, showToast: true, showBanner: true,
+                stealthEnabled: false, stealthOpacity: 1.0, stealthFontSize: 12, stealthNoBorder: false, stealthDisguise: false, bossKey: 'Alt+B'
             };
             let prefs = Object.assign({}, defaults);
 
@@ -1138,10 +1414,85 @@
 
             // ========== Line Spacing ==========
             window.setSpacing = function (v) {
-                prefs.spacing = v;
-                document.getElementById('articleBody').style.lineHeight = v;
-                document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.spacing === v));
+                let num = parseFloat(v);
+                if (isNaN(num)) num = 2.0;
+                num = Math.max(1.0, Math.min(4.0, num));
+                const formattedVal = num.toFixed(1);
+
+                prefs.spacing = formattedVal;
+                document.getElementById('articleBody').style.lineHeight = formattedVal;
+
+                const slider = document.getElementById('spacingSlider');
+                if (slider && slider.value !== formattedVal) {
+                    slider.value = formattedVal;
+                }
+                const valDisplay = document.getElementById('spacingVal');
+                if (valDisplay) {
+                    valDisplay.textContent = formattedVal;
+                }
+
+                document.querySelectorAll('.chip').forEach(c => {
+                    const chipVal = parseFloat(c.dataset.spacing).toFixed(1);
+                    c.classList.toggle('active', chipVal === formattedVal);
+                });
+
                 savePrefs();
+            };
+
+            window.adjustSpacing = function (delta) {
+                const current = parseFloat(prefs.spacing || 2.0);
+                const next = (current + delta).toFixed(1);
+                setSpacing(next);
+            };
+
+            // ========== Column Width ==========
+            window.setContentWidth = function (v) {
+                let isFull = (v === '100%' || v === '100');
+                let valStr = '';
+                let num = parseInt(v);
+
+                const wrap = document.querySelector('.reader-wrap');
+                if (isFull) {
+                    valStr = '100%';
+                    if (wrap) wrap.style.maxWidth = '100%';
+                } else {
+                    if (isNaN(num)) num = 780;
+                    num = Math.max(480, Math.min(1600, num));
+                    valStr = num + 'px';
+                    if (wrap) wrap.style.maxWidth = valStr;
+                }
+
+                prefs.contentWidth = isFull ? '100%' : num;
+
+                const slider = document.getElementById('contentWidthSlider');
+                if (slider) {
+                    slider.value = isFull ? 1400 : num;
+                }
+                const valDisplay = document.getElementById('contentWidthVal');
+                if (valDisplay) {
+                    valDisplay.textContent = valStr;
+                }
+
+                const chipsContainer = document.getElementById('widthChips');
+                if (chipsContainer) {
+                    chipsContainer.querySelectorAll('.chip').forEach(c => {
+                        const targetW = c.dataset.width;
+                        if (targetW === '100%') {
+                            c.classList.toggle('active', isFull);
+                        } else {
+                            c.classList.toggle('active', !isFull && parseInt(targetW) === num);
+                        }
+                    });
+                }
+
+                savePrefs();
+            };
+
+            window.adjustContentWidth = function (delta) {
+                let current = parseInt(prefs.contentWidth || 780);
+                if (isNaN(current)) current = 780;
+                let next = current + delta;
+                setContentWidth(next);
             };
 
             // ========== Element Toggles ==========
@@ -1178,6 +1529,8 @@
                 setTheme(prefs.theme);
                 setFontSize(prefs.fontSize);
                 setSpacing(prefs.spacing);
+                setContentWidth(prefs.contentWidth || 780);
+                initStealthPrefs();
                 // Toggles
                 document.getElementById('toggleProgress').checked = prefs.showProgress;
                 document.getElementById('toggleMeta').checked = prefs.showMeta;
@@ -1667,6 +2020,7 @@
                     document.getElementById('articleTimeMeta').innerHTML = `<iconify-icon icon="ph:clock-bold"></iconify-icon> 约 ${charCount} 字，预计阅读时间 ${readTimeMins} 分钟`;
 
                     document.getElementById('articleBody').innerHTML = extractBody(data.content);
+                    updateStealthContent();
 
                     // 规范化路径：去掉开头 /，防止绝对路径生成双斜杠URL
                     // 同时将空字符串规范为 null，避免空 URL 达到导航按钟
@@ -1747,12 +2101,255 @@
             }
             window.addEventListener('popstate', function () { const fp = getFilePath(); if (fp) loadArticle(fp); });
 
+            // ========== Stealth Floating Mini Window & Boss Key ==========
+            let stealthParas = [];
+            let stealthParaIndex = 0;
+            let isRecordingBossKey = false;
+
+            function initStealthPrefs() {
+                updateStealthUI();
+                makeStealthDraggable();
+            }
+
+            function updateStealthUI() {
+                const win = document.getElementById('stealthWindow');
+                if (!win) return;
+
+                const op = parseFloat(prefs.stealthOpacity !== undefined ? prefs.stealthOpacity : 1.0);
+                win.style.opacity = op;
+
+                const fs = parseInt(prefs.stealthFontSize !== undefined ? prefs.stealthFontSize : 12);
+                document.getElementById('stealthBody').style.fontSize = fs + 'px';
+
+                win.classList.toggle('no-border', !!prefs.stealthNoBorder);
+                win.classList.toggle('disguise-input', !!prefs.stealthDisguise);
+
+                const toggleBtn = document.getElementById('toggleStealth');
+                if (toggleBtn) toggleBtn.checked = !!prefs.stealthEnabled;
+
+                const opSlider = document.getElementById('stealthOpacitySlider');
+                if (opSlider) opSlider.value = op;
+                const opVal = document.getElementById('stealthOpacityVal');
+                if (opVal) opVal.textContent = Math.round(op * 100) + '%';
+
+                const fontSlider = document.getElementById('stealthFontSlider');
+                if (fontSlider) fontSlider.value = fs;
+                const fontVal = document.getElementById('stealthFontVal');
+                if (fontVal) fontVal.textContent = fs + 'px';
+
+                const nbToggle = document.getElementById('toggleStealthNoBorder');
+                if (nbToggle) nbToggle.checked = !!prefs.stealthNoBorder;
+
+                const disToggle = document.getElementById('toggleStealthDisguise');
+                if (disToggle) disToggle.checked = !!prefs.stealthDisguise;
+
+                const bkText = document.getElementById('bossKeyText');
+                if (bkText) bkText.textContent = prefs.bossKey || 'Alt+B';
+
+                win.style.display = prefs.stealthEnabled ? 'flex' : 'none';
+            }
+
+            window.toggleStealthWindow = function (forceState) {
+                if (forceState !== undefined) {
+                    prefs.stealthEnabled = !!forceState;
+                } else {
+                    prefs.stealthEnabled = !prefs.stealthEnabled;
+                }
+                const win = document.getElementById('stealthWindow');
+                if (win) {
+                    win.style.display = prefs.stealthEnabled ? 'flex' : 'none';
+                }
+                const cb = document.getElementById('toggleStealth');
+                if (cb) cb.checked = prefs.stealthEnabled;
+                savePrefs();
+            };
+
+            window.setStealthOpacity = function (v) {
+                prefs.stealthOpacity = parseFloat(v);
+                const win = document.getElementById('stealthWindow');
+                if (win) win.style.opacity = prefs.stealthOpacity;
+                const opVal = document.getElementById('stealthOpacityVal');
+                if (opVal) opVal.textContent = Math.round(prefs.stealthOpacity * 100) + '%';
+                savePrefs();
+            };
+
+            window.setStealthFontSize = function (v) {
+                prefs.stealthFontSize = parseInt(v);
+                document.getElementById('stealthBody').style.fontSize = prefs.stealthFontSize + 'px';
+                const fontVal = document.getElementById('stealthFontVal');
+                if (fontVal) fontVal.textContent = prefs.stealthFontSize + 'px';
+                savePrefs();
+            };
+
+            window.setStealthNoBorder = function (checked) {
+                prefs.stealthNoBorder = !!checked;
+                const win = document.getElementById('stealthWindow');
+                if (win) win.classList.toggle('no-border', prefs.stealthNoBorder);
+                savePrefs();
+            };
+
+            window.setStealthDisguise = function (checked) {
+                prefs.stealthDisguise = !!checked;
+                const win = document.getElementById('stealthWindow');
+                if (win) win.classList.toggle('disguise-input', prefs.stealthDisguise);
+                const disToggle = document.getElementById('toggleStealthDisguise');
+                if (disToggle) disToggle.checked = prefs.stealthDisguise;
+                renderStealthPara();
+                savePrefs();
+            };
+
+            window.toggleStealthDisguise = function () {
+                setStealthDisguise(!prefs.stealthDisguise);
+            };
+
+            function updateStealthContent() {
+                const body = document.getElementById('articleBody');
+                if (!body) return;
+                const ps = Array.from(body.querySelectorAll('p, h1, h2, h3, li')).map(el => el.textContent.trim()).filter(Boolean);
+                stealthParas = ps.length ? ps : [body.textContent.trim() || '暂无文字内容'];
+                stealthParaIndex = 0;
+                renderStealthPara();
+            }
+
+            function renderStealthPara() {
+                const contentEl = document.getElementById('stealthContent');
+                const progEl = document.getElementById('stealthProgress');
+                if (!contentEl) return;
+                if (!stealthParas.length) {
+                    contentEl.textContent = '暂无文章内容';
+                    if (progEl) progEl.textContent = '0/0';
+                    return;
+                }
+                if (stealthParaIndex < 0) stealthParaIndex = 0;
+                if (stealthParaIndex >= stealthParas.length) stealthParaIndex = stealthParas.length - 1;
+
+                if (prefs.stealthDisguise) {
+                    contentEl.textContent = '// ' + stealthParas[stealthParaIndex];
+                } else {
+                    contentEl.textContent = stealthParas[stealthParaIndex];
+                }
+                if (progEl) progEl.textContent = (stealthParaIndex + 1) + '/' + stealthParas.length;
+            }
+
+            window.stealthPrevPara = function () {
+                if (stealthParaIndex > 0) {
+                    stealthParaIndex--;
+                    renderStealthPara();
+                }
+            };
+
+            window.stealthNextPara = function () {
+                if (stealthParaIndex < stealthParas.length - 1) {
+                    stealthParaIndex++;
+                    renderStealthPara();
+                }
+            };
+
+            window.startRecordingBossKey = function () {
+                isRecordingBossKey = true;
+                const btn = document.getElementById('bossKeyBtn');
+                const text = document.getElementById('bossKeyText');
+                if (btn) btn.classList.add('recording');
+                if (text) text.textContent = '请按下按键...';
+            };
+
+            function parseHotkey(e) {
+                const parts = [];
+                if (e.ctrlKey) parts.push('Ctrl');
+                if (e.altKey) parts.push('Alt');
+                if (e.shiftKey) parts.push('Shift');
+                if (e.metaKey) parts.push('Cmd');
+
+                let key = e.key;
+                if (key === ' ') key = 'Space';
+                if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return null;
+                key = key.toUpperCase();
+                parts.push(key);
+                return parts.join('+');
+            }
+
+            function checkBossKeyMatch(e, hotkeyStr) {
+                if (!hotkeyStr) return false;
+                const expected = hotkeyStr.split('+');
+                const reqCtrl = expected.includes('Ctrl');
+                const reqAlt = expected.includes('Alt');
+                const reqShift = expected.includes('Shift');
+                const reqCmd = expected.includes('Cmd');
+                const mainKey = expected[expected.length - 1];
+
+                if (!!e.ctrlKey !== reqCtrl) return false;
+                if (!!e.altKey !== reqAlt) return false;
+                if (!!e.shiftKey !== reqShift) return false;
+                if (!!e.metaKey !== reqCmd) return false;
+
+                let pressedKey = e.key;
+                if (pressedKey === ' ') pressedKey = 'Space';
+                return pressedKey.toUpperCase() === mainKey.toUpperCase() || e.code.toUpperCase() === ('KEY' + mainKey.toUpperCase());
+            }
+
+            function makeStealthDraggable() {
+                const win = document.getElementById('stealthWindow');
+                const header = document.getElementById('stealthHeader');
+                if (!win || !header) return;
+
+                let isDragging = false, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
+
+                header.addEventListener('pointerdown', function (e) {
+                    if (e.target.closest('.stealth-btn')) return;
+                    isDragging = true;
+                    header.setPointerCapture(e.pointerId);
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    const rect = win.getBoundingClientRect();
+                    initialLeft = rect.left;
+                    initialTop = rect.top;
+                    e.preventDefault();
+                });
+
+                header.addEventListener('pointermove', function (e) {
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    win.style.left = Math.max(0, initialLeft + dx) + 'px';
+                    win.style.top = Math.max(0, initialTop + dy) + 'px';
+                });
+
+                header.addEventListener('pointerup', function (e) {
+                    if (isDragging) {
+                        isDragging = false;
+                        try { header.releasePointerCapture(e.pointerId); } catch (err) {}
+                    }
+                });
+            }
+
             // ========== Keyboard ==========
             document.addEventListener('keydown', function (e) {
+                if (isRecordingBossKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const hotkey = parseHotkey(e);
+                    if (hotkey) {
+                        prefs.bossKey = hotkey;
+                        isRecordingBossKey = false;
+                        const btn = document.getElementById('bossKeyBtn');
+                        const text = document.getElementById('bossKeyText');
+                        if (btn) btn.classList.remove('recording');
+                        if (text) text.textContent = hotkey;
+                        savePrefs();
+                    }
+                    return;
+                }
+
+                if (checkBossKeyMatch(e, prefs.bossKey || 'Alt+B')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleStealthWindow();
+                    return;
+                }
+
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
                 if (e.key === ' ' || e.code === 'Space') {
-                    // Spacebar to toggle auto scroll
                     e.preventDefault();
                     toggleAutoScroll();
                 } else if (e.key === 'ArrowLeft' && prevArticle) {
@@ -1804,6 +2401,32 @@
             });
         })();
     </script>
+
+    <!-- Stealth Floating Mini Window (摸鱼/小窗模式) -->
+    <div class="stealth-window" id="stealthWindow" style="display: none;">
+        <div class="stealth-header" id="stealthHeader">
+            <div class="stealth-title">
+                <iconify-icon icon="ph:textbox-bold"></iconify-icon>
+                <span id="stealthTitleText">摸鱼小窗</span>
+            </div>
+            <div class="stealth-actions">
+                <button class="stealth-btn" onclick="toggleStealthDisguise()" title="切换伪装输入框样式">
+                    <iconify-icon icon="ph:code-bold"></iconify-icon>
+                </button>
+                <button class="stealth-btn" onclick="toggleStealthWindow()" title="关闭小窗">
+                    <iconify-icon icon="ph:x-bold"></iconify-icon>
+                </button>
+            </div>
+        </div>
+        <div class="stealth-body" id="stealthBody">
+            <div class="stealth-content" id="stealthContent">正文加载中...</div>
+        </div>
+        <div class="stealth-footer" id="stealthFooter">
+            <button class="stealth-page-btn" onclick="stealthPrevPara()" title="上一段">▲</button>
+            <span class="stealth-progress" id="stealthProgress">1/1</span>
+            <button class="stealth-page-btn" onclick="stealthNextPara()" title="下一段">▼</button>
+        </div>
+    </div>
 </body>
 
 </html>
