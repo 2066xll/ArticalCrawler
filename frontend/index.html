@@ -20,62 +20,71 @@
         }
 
         [data-theme="dark"] {
-            --bg-color: #1e1d1b;
-            --border-color: #7a7571;
-            --card-bg: #2d2b28;
-            --text-color: #d1ccc8;
-            --input-bg: #252321;
-            --main-accent: #c85a5a;
+            --bg-color: #121214;
+            --border-color: #38383c;
+            --card-bg: #1a1a1f;
+            --text-color: #e5e5ea;
+            --input-bg: #242429;
+            --main-accent: #ff5252;
+        }
+
+        [data-theme="dark"] .form-text {
+            color: #8e8e93;
         }
 
         [data-theme="dark"] .btn-primary {
             background-color: var(--main-accent);
-            color: #1e1d1b;
+            color: #ffffff;
+            border-color: var(--border-color);
         }
 
         [data-theme="dark"] .btn-primary:hover {
-            background-color: #d56b6b;
-            color: #1e1d1b;
+            background-color: #e04040;
+            color: #ffffff;
         }
 
         [data-theme="dark"] .btn-secondary {
-            background-color: #c4a050;
-            color: #1e1d1b;
+            background-color: #ff9800; /* Softer Orange */
+            color: #ffffff;
+            border-color: var(--border-color);
         }
 
         [data-theme="dark"] .btn-secondary:hover {
-            background-color: #b08d40;
-            color: #1e1d1b;
+            background-color: #f57c00;
+            color: #ffffff;
         }
 
         [data-theme="dark"] .btn-warning {
-            background-color: #c4a050;
-            color: #1e1d1b;
+            background-color: #ffb74d; /* Softer Gold */
+            color: #121214;
+            border-color: var(--border-color);
         }
 
         [data-theme="dark"] .btn-warning:hover {
-            background-color: #b08d40;
-            color: #1e1d1b;
+            background-color: #ffa726;
+            color: #121214;
         }
 
         [data-theme="dark"] .btn-danger {
-            background-color: #b38888;
-            color: #1e1d1b;
+            background-color: #ff5252; /* Soft Coral Red */
+            color: #ffffff;
+            border-color: var(--border-color);
         }
 
         [data-theme="dark"] .btn-danger:hover {
-            background-color: #9e7373;
-            color: #1e1d1b;
+            background-color: #e04040;
+            color: #ffffff;
         }
 
         [data-theme="dark"] #btn-reader {
-            background-color: #8bb892 !important;
-            color: #1e1d1b !important;
+            background-color: #4db6ac !important; /* Sage Teal Green */
+            color: #121214 !important;
+            border-color: var(--border-color) !important;
         }
 
         [data-theme="dark"] #btn-reader:hover {
-            background-color: #7aa580 !important;
-            color: #1e1d1b !important;
+            background-color: #80cbc4 !important;
+            color: #121214 !important;
         }
 
         [data-theme="dark"] #progress-bar {
@@ -83,27 +92,27 @@
         }
 
         [data-theme="dark"] .alert-info {
-            background-color: #2e3d3e;
-            color: #b2ebf2;
-            border-color: #7a7571;
+            background-color: #1a2b3c;
+            color: #80deea;
+            border-color: var(--border-color);
         }
 
         [data-theme="dark"] .alert-primary {
-            background-color: #3e3a2e;
+            background-color: #2b2210;
             color: #ffe082;
-            border-color: #7a7571;
+            border-color: var(--border-color);
         }
 
         [data-theme="dark"] .alert-success {
-            background-color: #2e3e31;
+            background-color: #132c1c;
             color: #a5d6a7;
-            border-color: #7a7571;
+            border-color: var(--border-color);
         }
 
         [data-theme="dark"] .alert-danger {
-            background-color: #3e2e2e;
-            color: #ef9a9a;
-            border-color: #7a7571;
+            background-color: #3c1b1b;
+            color: #ff8a80;
+            border-color: var(--border-color);
         }
 
         body {
@@ -197,6 +206,14 @@
             outline: none;
             box-shadow: 4px 4px 0 var(--main-accent);
             border-color: var(--border-color);
+        }
+
+        .form-control:disabled,
+        .form-select:disabled {
+            background-color: var(--input-bg) !important;
+            color: var(--text-color) !important;
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .form-text {
@@ -417,7 +434,7 @@
             <button type="button" class="btn" id="theme-toggle" onclick="toggleTheme()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color);" title="切换主题">
                 <iconify-icon icon="ph:sun-bold" id="theme-icon" style="font-size: 1.2rem; display: flex; align-items: center;"></iconify-icon>
             </button>
-            <button type="button" class="btn btn-danger" id="shutdown-btn" onclick="shutdownServer()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color);" title="关闭服务器">
+            <button type="button" class="btn btn-danger" id="shutdown-btn" onclick="shutdownServer()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color);" title="关闭服务器 (Ctrl+Shift+Q)">
                 <iconify-icon icon="ph:power-bold" id="shutdown-icon" style="font-size: 1.2rem; display: flex; align-items: center;"></iconify-icon>
             </button>
         </div>
@@ -505,11 +522,21 @@
             </form>
 
             <div class="progress" id="progress-bar">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
-                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+                <div id="progress-bar-fill" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                    aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%; color: #1a1a1a; font-weight: bold; text-align: center; line-height: 1.5rem;">0%</div>
             </div>
 
             <div class="status-message" id="status-message"></div>
+
+            <!-- 任务控制按钮 -->
+            <div id="task-control-buttons" style="display: none; margin-top: 1.5rem;" class="d-flex gap-3 mb-3">
+                <button type="button" id="btn-pause-resume" class="btn btn-warning flex-grow-1" style="font-weight: bold; border: 3px solid var(--border-color); box-shadow: 4px 4px 0 var(--border-color);">
+                    <iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停
+                </button>
+                <button type="button" id="btn-stop" class="btn btn-danger flex-grow-1" style="font-weight: bold; border: 3px solid var(--border-color); box-shadow: 4px 4px 0 var(--border-color);">
+                    <iconify-icon icon="ph:stop-bold"></iconify-icon> 停止
+                </button>
+            </div>
 
         </div>
 
@@ -548,6 +575,30 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        let activeTaskId = null;
+        let pollTimeout = null;
+
+        function lockUI() {
+            document.getElementById('url').disabled = true;
+            document.getElementById('format').disabled = true;
+            document.getElementById('output_dir').disabled = true;
+            document.getElementById('next_chapters').disabled = true;
+            document.getElementById('prev_chapters').disabled = true;
+            const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+        }
+
+        function unlockUI() {
+            document.getElementById('url').disabled = false;
+            document.getElementById('format').disabled = false;
+            document.getElementById('output_dir').disabled = false;
+            document.getElementById('next_chapters').disabled = false;
+            document.getElementById('prev_chapters').disabled = false;
+            const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = false;
+            document.getElementById('task-control-buttons').style.display = 'none';
+        }
+
         document.getElementById('crawl-form').addEventListener('submit', function (e) {
             e.preventDefault();
 
@@ -560,14 +611,26 @@
             };
 
             const progressBar = document.getElementById('progress-bar');
+            const fill = document.getElementById('progress-bar-fill');
             const statusMessage = document.getElementById('status-message');
             const resultContainer = document.getElementById('result-container');
 
+            lockUI();
+            if (fill) {
+                fill.style.width = '0%';
+                fill.innerText = '0%';
+            }
             progressBar.style.display = 'block';
             statusMessage.className = 'status-message alert-info';
-            statusMessage.innerHTML = '<iconify-icon icon="ph:spinner-bold" class="rotate-icon"></iconify-icon> 机器轰鸣中，稍等...';
+            statusMessage.innerHTML = '<iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 机器轰鸣中，稍等...';
             statusMessage.style.display = 'block';
             resultContainer.style.display = 'none';
+
+            // 重置暂停/停止按钮状态
+            const prBtn = document.getElementById('btn-pause-resume');
+            prBtn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+            prBtn.className = 'btn btn-warning flex-grow-1';
+            document.getElementById('task-control-buttons').style.display = 'flex';
 
             fetch('/api/crawl', {
                 method: 'POST',
@@ -580,6 +643,7 @@
                         statusMessage.className = 'status-message alert-danger';
                         statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: ${data.error}`;
                         progressBar.style.display = 'none';
+                        unlockUI();
                         return;
                     }
 
@@ -589,9 +653,11 @@
                         statusMessage.className = 'status-message alert-danger';
                         statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: 未获取到任务 ID`;
                         progressBar.style.display = 'none';
+                        unlockUI();
                         return;
                     }
 
+                    activeTaskId = taskId;
                     statusMessage.innerHTML = `<iconify-icon icon="ph:engine-bold"></iconify-icon> 任务编号: ${taskId}，正在狂奔...`;
                     pollTaskStatus(taskId);
                 })
@@ -599,14 +665,17 @@
                     statusMessage.className = 'status-message alert-danger';
                     statusMessage.innerHTML = `<iconify-icon icon="ph:wifi-slash-bold"></iconify-icon> 网络断了: ${error.message}`;
                     progressBar.style.display = 'none';
+                    unlockUI();
                 });
         });
 
         function pollTaskStatus(taskId) {
             const progressBar = document.getElementById('progress-bar');
+            const fill = document.getElementById('progress-bar-fill');
             const statusMessage = document.getElementById('status-message');
             const resultContainer = document.getElementById('result-container');
             const resultContent = document.getElementById('result-content');
+            const controls = document.getElementById('task-control-buttons');
 
             fetch(`/api/task/${taskId}`)
                 .then(response => response.json())
@@ -615,27 +684,54 @@
                         statusMessage.className = 'status-message alert-danger';
                         statusMessage.innerHTML = `<span class="fw-bold">爆炸了:</span> ${data.error}`;
                         progressBar.style.display = 'none';
+                        unlockUI();
                         return;
                     }
 
-                    // 从响应中解包 task 对象
                     const task = data.task || data;
+                    activeTaskId = task.id;
+
+                    const pct = task.progress || 0;
+                    const completed = task.completed_chapters || 0;
+                    const total = task.total_chapters || 0;
+
+                    if (fill) {
+                        fill.style.width = pct + '%';
+                        fill.innerText = pct + '%';
+                    }
 
                     let statusText = '';
                     let statusClass = '';
+
+                    const prBtn = document.getElementById('btn-pause-resume');
 
                     switch (task.status) {
                         case 'pending':
                             statusText = '还在排队呢...';
                             statusClass = 'alert-info';
+                            lockUI();
+                            controls.style.display = 'flex';
                             break;
                         case 'running':
-                            statusText = '正在疯狂薅羊毛...';
+                            statusText = `正在疯狂薅羊毛... (${completed}/${total}) [${pct}%]${task.current_chapter_title ? '<br>当前已爬: ' + task.current_chapter_title : ''}`;
                             statusClass = 'alert-primary';
+                            lockUI();
+                            controls.style.display = 'flex';
+                            prBtn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+                            prBtn.className = 'btn btn-warning flex-grow-1';
+                            break;
+                        case 'paused':
+                            statusText = `任务已暂停。已下载 ${completed}/${total} 章 [${pct}%]${task.current_chapter_title ? '<br>当前停留: ' + task.current_chapter_title : ''}`;
+                            statusClass = 'alert-warning';
+                            lockUI();
+                            controls.style.display = 'flex';
+                            prBtn.innerHTML = '<iconify-icon icon="ph:play-bold"></iconify-icon> 继续';
+                            prBtn.className = 'btn btn-success flex-grow-1';
                             break;
                         case 'completed':
                             statusText = '大功告成！全扒下来了。';
                             statusClass = 'alert-success';
+                            unlockUI();
 
                             let resultHtml = `
                             <div class="brutal-card p-3 mb-4">
@@ -672,33 +768,138 @@
                             resultContent.innerHTML = resultHtml;
                             resultContainer.style.display = 'block';
                             progressBar.style.display = 'none';
+                            activeTaskId = null;
                             return;
                         case 'failed':
                             statusText = '抱歉，挂了！可能网站反扒了。';
                             statusClass = 'alert-danger';
+                            unlockUI();
 
                             resultContent.innerHTML = `
                             <div class="brutal-card p-3" style="border-color: #ff4d4d;">
                                 <h4>错误信息：</h4>
-                                <p>${task.error}</p>
+                                <p>${task.error || '未知错误'}</p>
                             </div>
                         `;
                             resultContainer.style.display = 'block';
                             progressBar.style.display = 'none';
+                            activeTaskId = null;
+                            return;
+                        case 'stopped':
+                            statusText = '任务已手动终止。';
+                            statusClass = 'alert-secondary';
+                            unlockUI();
+
+                            resultContent.innerHTML = `
+                            <div class="brutal-card p-3" style="border-color: var(--border-color);">
+                                <h4>下载历史被停止：</h4>
+                                <p>${task.error_msg || '任务已被用户停止。'}</p>
+                            </div>
+                        `;
+                            resultContainer.style.display = 'block';
+                            progressBar.style.display = 'none';
+                            activeTaskId = null;
                             return;
                     }
 
                     statusMessage.className = `status-message ${statusClass}`;
                     statusMessage.innerHTML = `<span class="fw-bold me-2">></span> ${statusText}`;
 
-                    setTimeout(() => pollTaskStatus(taskId), 1000);
+                    if (pollTimeout) clearTimeout(pollTimeout);
+                    pollTimeout = setTimeout(() => pollTaskStatus(taskId), 1000);
                 })
                 .catch(error => {
                     statusMessage.className = 'status-message alert-danger';
                     statusMessage.innerHTML = `断连: ${error.message}`;
                     progressBar.style.display = 'none';
+                    unlockUI();
                 });
         }
+
+        document.getElementById('btn-pause-resume').addEventListener('click', function() {
+            if (!activeTaskId) return;
+            const btn = this;
+            const isPause = btn.innerText.includes('暂停');
+            const action = isPause ? 'pause' : 'resume';
+            
+            btn.disabled = true;
+            fetch(`/api/task/${activeTaskId}/${action}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (data.success) {
+                        if (isPause) {
+                            btn.innerHTML = '<iconify-icon icon="ph:play-bold"></iconify-icon> 继续';
+                            btn.className = 'btn btn-success flex-grow-1';
+                        } else {
+                            btn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+                            btn.className = 'btn btn-warning flex-grow-1';
+                        }
+                    } else {
+                        alert(data.error || '操作失败');
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    alert('网络出错: ' + err.message);
+                });
+        });
+
+        document.getElementById('btn-stop').addEventListener('click', function() {
+            if (!activeTaskId) return;
+            if (!confirm('确定要停止当前下载任务吗？')) return;
+            
+            const btn = this;
+            btn.disabled = true;
+            fetch(`/api/task/${activeTaskId}/stop`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (!data.success) {
+                        alert(data.error || '停止失败');
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    alert('网络出错: ' + err.message);
+                });
+        });
+
+        // 页面加载时恢复之前的锁定状态（防止刷新解除锁定）
+        window.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/tasks')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.tasks) {
+                        for (const tid in data.tasks) {
+                            const t = data.tasks[tid];
+                            if (t.status === 'running' || t.status === 'paused' || t.status === 'pending') {
+                                activeTaskId = tid;
+                                lockUI();
+                                document.getElementById('progress-bar').style.display = 'block';
+                                document.getElementById('task-control-buttons').style.display = 'flex';
+                                const statusMessage = document.getElementById('status-message');
+                                statusMessage.style.display = 'block';
+                                statusMessage.className = 'status-message alert-info';
+                                statusMessage.innerHTML = '正在同步爬取状态中...';
+                                
+                                const prBtn = document.getElementById('btn-pause-resume');
+                                if (t.status === 'paused') {
+                                    prBtn.innerHTML = '<iconify-icon icon="ph:play-bold"></iconify-icon> 继续';
+                                    prBtn.className = 'btn btn-success flex-grow-1';
+                                } else {
+                                    prBtn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+                                    prBtn.className = 'btn btn-warning flex-grow-1';
+                                }
+                                
+                                pollTaskStatus(tid);
+                                break;
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error("恢复任务状态失败:", err));
+        });
 
         function viewArticle(filename) {
             window.location.href = `/article/${filename}`;
@@ -837,6 +1038,34 @@
                     `;
                 });
         };
+
+        // 全局关闭服务器键盘快捷键 (Ctrl+Shift+Q)
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey || e.altKey) && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
+                e.preventDefault();
+                shutdownServer();
+            }
+        });
+
+        // 当链接改变时自动请求探测书名并更新保存目录
+        let lastUrlProbed = '';
+        document.getElementById('url').addEventListener('input', function (e) {
+            const urlVal = e.target.value.trim();
+            if (urlVal.startsWith('http') && urlVal !== lastUrlProbed) {
+                lastUrlProbed = urlVal;
+                fetch('/api/probe_book_title?url=' + encodeURIComponent(urlVal))
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.book_title && data.book_title !== '未知书籍') {
+                            const outputDirInput = document.getElementById('output_dir');
+                            if (outputDirInput.value === './articles' || outputDirInput.value === './output' || !outputDirInput.value) {
+                                outputDirInput.value = './articles/' + data.book_title;
+                            }
+                        }
+                    })
+                    .catch(err => console.log('探测书名失败:', err));
+            }
+        });
     </script>
 </body>
 

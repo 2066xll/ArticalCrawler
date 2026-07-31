@@ -1224,7 +1224,7 @@
                 const el = document.getElementById('tocList');
                 if (!list || list.length === 0) { el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted)">暂无章节</div>'; return; }
                 el.innerHTML = list.map(f => {
-                    const name = f.replace(/^\d{4}_/, '').replace(/\.[^.]+$/, '');
+                    const name = f.replace(/^\d+_/, '').replace(/\.[^.]+$/, '');
                     const isActive = f === currentFile;
                     return `<a class="toc-item${isActive ? ' active' : ''}" data-file="${f}" onclick="tocNavigate('${f}')">${name}</a>`;
                 }).join('');
@@ -1273,7 +1273,7 @@
                                 </div>
                                 <div class="scanner-dir-files" id="scanner-files-${index}" style="display: none; padding-left: 0.5rem; background: var(--bg-color);">
                                     ${res.files.map(f => {
-                                        const cleanName = f.replace(/^\d{4}_/, '').replace(/\.[^.]+$/, '');
+                                        const cleanName = f.replace(/^\d+_/, '').replace(/\.[^.]+$/, '');
                                         const fullPath = res.dir ? (res.dir + '/' + f) : f;
                                         return `<a class="toc-item" style="padding: 0.5rem 1rem; font-size: 0.8rem; border-bottom: 1px dashed var(--meta-bg); font-family: monospace;" onclick="scanNavigate('${fullPath}')">📄 ${cleanName}</a>`;
                                     }).join('')}
@@ -1727,6 +1727,38 @@
             loadPrefs();
             const fp = getFilePath();
             if (fp && fp !== 'ONLINE:') loadArticle(fp); else showError('未指定文章路径或链接');
+
+            // 全局关闭服务器键盘快捷键 (Ctrl+Shift+Q)
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey || e.altKey) && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
+                    e.preventDefault();
+                    if (confirm('真要关掉后端吗？\n关了这网页就废了。')) {
+                        fetch('/api/shutdown', { method: 'POST' })
+                            .then(() => {
+                                document.body.innerHTML = `
+                                    <div class="container" style="max-width: 600px; margin-top: 15vh; font-family: sans-serif; padding: 2rem;">
+                                        <div style="text-align: center; border: 4px solid #1a1a1a; background-color: #ffffff; padding: 3rem; box-shadow: 6px 6px 0 #1a1a1a;">
+                                            <h2 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 1.5rem; color: #ff4d4d;">成功毁灭世界！</h2>
+                                            <p style="margin: 1rem 0; font-size: 1.2rem; font-weight: bold; color: #1a1a1a;">后端服务已经被搞死了。</p>
+                                            <p style="font-size: 1.2rem; font-weight: bold; color: #1a1a1a;">现在可以关闭浏览器了。</p>
+                                        </div>
+                                    </div>
+                                `;
+                            })
+                            .catch(() => {
+                                document.body.innerHTML = `
+                                    <div class="container" style="max-width: 600px; margin-top: 15vh; font-family: sans-serif; padding: 2rem;">
+                                        <div style="text-align: center; border: 4px solid #1a1a1a; background-color: #ffffff; padding: 3rem; box-shadow: 6px 6px 0 #1a1a1a;">
+                                            <h2 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 1.5rem; color: #ff4d4d;">成功毁灭世界！</h2>
+                                            <p style="margin: 1rem 0; font-size: 1.2rem; font-weight: bold; color: #1a1a1a;">后端服务已经被搞死了。</p>
+                                            <p style="font-size: 1.2rem; font-weight: bold; color: #1a1a1a;">现在可以关闭浏览器了。</p>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                    }
+                }
+            });
         })();
     </script>
 </body>

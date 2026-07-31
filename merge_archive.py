@@ -13,18 +13,29 @@ def get_chapter_number(filename):
     """
     从文件名中提取章节号
     支持多种文件名格式：
-    - 0691_第六百九十一章 学府之变.txt
+    - 00691_第六百九十一章 学府之变.txt
     - 第一千零一章 灵相宫.txt
     """
-    # 首先尝试从数字前缀提取（如0691_）
+    # 首先尝试从数字前缀提取（如00691_）
     prefix_match = re.match(r'^(\d+)_', filename)
     if prefix_match:
         return int(prefix_match.group(1))
     
-    # 尝试从章节标题中提取（如第六百九十一章）
-    chapter_match = re.search(r'第(\d+)章', filename)
+    # 尝试从章节标题中提取（如第六百九十一章、第123章）
+    chapter_match = re.search(r'第([\d一二三四五六七八九十百千万两零]+)[章节回]', filename)
     if chapter_match:
-        return int(chapter_match.group(1))
+        try:
+            # 引入项目已实现的中文数字转换模块
+            sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+            from article_crawler import chinese_to_arabic
+            return chinese_to_arabic(chapter_match.group(1))
+        except Exception:
+            pass
+            
+    # 阿拉伯数字兜底提取
+    arabic_match = re.search(r'第(\d+)章', filename)
+    if arabic_match:
+        return int(arabic_match.group(1))
     
     # 如果都匹配不到，返回0
     return 0

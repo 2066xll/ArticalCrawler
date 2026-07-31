@@ -3,6 +3,53 @@
 
 import os
 import sys
+
+# PyInstaller 打包支持：检测运行环境
+if getattr(sys, 'frozen', False):
+    # 打包后：资源在 sys._MEIPASS 临时目录中（只读）
+    BASE_DIR = os.path.dirname(sys.executable)  # 可执行文件所在目录（可写）
+    RESOURCE_DIR = sys._MEIPASS  # type: ignore[attr-defined]  # 包内资源目录
+else:
+    # 开发环境：资源在脚本所在目录
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    RESOURCE_DIR = BASE_DIR
+
+# 确保 data 目录存在
+log_dir = os.path.join(BASE_DIR, 'data')
+try:
+    os.makedirs(log_dir, exist_ok=True)
+except Exception:
+    pass
+
+log_file = os.path.join(log_dir, 'app.log')
+
+# 初始化日志记录，同时输出到控制台和文件
+import logging
+from logging.handlers import RotatingFileHandler
+
+# 创建根日志记录器
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# 清除已有的 handlers（避免重复输出）
+for h in list(root_logger.handlers):
+    root_logger.removeHandler(h)
+
+log_format = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+
+# 终端输出 Handler
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(log_format)
+root_logger.addHandler(stream_handler)
+
+# 文件输出 Handler，使用 RotatingFileHandler 限制日志大小，防止日志无限增大
+file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=3, encoding='utf-8')
+file_handler.setFormatter(log_format)
+root_logger.addHandler(file_handler)
+
+logger = logging.getLogger(__name__)
+logger.info(f"日志初始化完成，日志文件路径: {log_file}")
+
 import json
 import threading
 import time
@@ -15,18 +62,18 @@ import traceback
 
 from article_crawler import fetch_page, parse_article
 
-import logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-# 统一提取章节号的助手函数，支持 "第X章" 以及 "0001_" 前缀
+# 统一提取章节号的助手函数，支持 "第X章" 以及 "00001_" 前缀和中文数字
 def get_chapter_number(fn):
-    match = re.search(r'第(\d+)章', fn)
-    if match:
-        return int(match.group(1))
     prefix_match = re.match(r'^(\d+)_', fn)
     if prefix_match:
         return int(prefix_match.group(1))
+    match = re.search(r'第([\d一二三四五六七八九十百千万两零]+)[章节回]', fn)
+    if match:
+        try:
+            from article_crawler import chinese_to_arabic
+            return chinese_to_arabic(match.group(1))
+        except Exception:
+            pass
     return 999999
 
 # 添加缓存支持
@@ -108,15 +155,7 @@ def rate_limit_decorator(func):
         return func(*args, **kwargs)
     return wrapper
 
-# PyInstaller 打包支持：检测运行环境
-if getattr(sys, 'frozen', False):
-    # 打包后：资源在 sys._MEIPASS 临时目录中（只读）
-    BASE_DIR = os.path.dirname(sys.executable)  # 可执行文件所在目录（可写）
-    RESOURCE_DIR = sys._MEIPASS  # type: ignore[attr-defined]  # 包内资源目录
-else:
-    # 开发环境：资源在脚本所在目录
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    RESOURCE_DIR = BASE_DIR
+
 
 app = Flask(
     __name__,
@@ -150,6 +189,8 @@ app.static_url_path = '/static'
 
 # 任务状态存储
 tasks = {}
+# 任务运行状态控制映射：task_id -> { 'pause_event': Event, 'cancel_event': Event }
+task_controls = {}
 
 # 历史记录文件（使用绝对路径，避免相对路径问题）
 HISTORY_FILE = os.path.join(BASE_DIR, 'data', 'history.json')
@@ -200,6 +241,15 @@ def load_tasks():
     try:
         with open(TASKS_FILE, 'r', encoding='utf-8') as f:
             tasks = json.load(f)
+            # 重启后清理挂起/运行中的状态
+            cleaned = False
+            for tid, tinfo in tasks.items():
+                if tinfo.get('status') in ('running', 'pending', 'paused'):
+                    tinfo['status'] = 'stopped'
+                    tinfo['error_msg'] = '服务器重启，任务中止。'
+                    cleaned = True
+            if cleaned:
+                save_tasks()
     except Exception:
         tasks = {}
 
@@ -255,20 +305,58 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
             else:
                 raise PermissionError(f"所有候选目录均不可写，请在终端手动运行: xattr -d com.apple.provenance \"{output_dir}\"")
 
+        # 初始化控制事件
+        pause_event = threading.Event()
+        pause_event.set()  # 默认不暂停
+        cancel_event = threading.Event()
+        task_controls[task_id] = {
+            'pause_event': pause_event,
+            'cancel_event': cancel_event
+        }
+
         # 更新任务状态
         tasks[task_id]['status'] = 'running'
         tasks[task_id]['start_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        tasks[task_id]['output_dir'] = output_dir  # 更新为绝对路径（含回退后的）
+        tasks[task_id]['output_dir'] = output_dir  # 更新为绝对路径
+        tasks[task_id]['completed_chapters'] = 0
+        tasks[task_id]['total_chapters'] = 1 + next_chapters + prev_chapters
+        tasks[task_id]['progress'] = 0
+        tasks[task_id]['current_chapter_title'] = ''
         save_tasks()
 
-        # ── 直接调用爬虫模块中的函数，不再通过 sys.argv / main() ──
+        # 直接调用爬虫模块中的函数
         import article_crawler as _ac
+
+        # 1. 爬取当前章节页面获取 HTML 提取书名
+        logger.info(f"[{task_id[:8]}] 开始获取当前章: {url}")
+        current_html = _ac.fetch_page(url)
+
+        # 提取书名并自适应更新输出路径（按书名建立文件夹归档）
+        book_title = "未知书籍"
+        try:
+            from bs4 import BeautifulSoup
+            soup_start = BeautifulSoup(current_html, 'lxml')
+            extracted_title = _ac.extract_book_title(soup_start, url)
+            if extracted_title and extracted_title != "未知书籍":
+                book_title = extracted_title
+        except Exception as e:
+            logger.warning(f"提取书名失败: {e}")
+
+        if book_title and book_title != "未知书籍":
+            safe_book_title = re.sub(r'[\\/:*?"<>|]', '_', book_title).strip()
+            if safe_book_title:
+                if not output_dir.endswith(safe_book_title):
+                    output_dir = os.path.join(output_dir, safe_book_title)
+                    os.makedirs(output_dir, exist_ok=True)
+                    # 更新任务状态中及爬取历史文件路径为绝对子路径
+                    tasks[task_id]['output_dir'] = output_dir
+                    save_tasks()
 
         # 已爬取记录（防重复）
         crawled_urls: set = set()
         crawled_chapters: set = set()
 
-        # 从持久化历史中恢复
+        # 从持久化历史中恢复（此时 output_dir 已经包含书名）
         crawl_history_file = os.path.join(output_dir, '.crawl_history.json')
         if os.path.exists(crawl_history_file):
             try:
@@ -282,97 +370,246 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
 
         written_files: list = []
 
-        def _fetch_and_write(target_url, append=False, existing_file=None):
-            """爬取并写入单章，返回 (article_dict, file_path)"""
-            html = _ac.fetch_page(target_url)
-            article = _ac.parse_article(html, target_url)
-            logger.info(f"解析成功: {article.get('title', '')} <- {target_url}")
-            fp = _ac.write_article(article, output_dir, format,
-                                   append=append, existing_file=existing_file)
-            return article, fp
+        # 解析文章数据
+        current_article = _ac.parse_article(current_html, url)
+        current_chapter_title = current_article['title']
+        crawled_urls.add(url)
+        
+        # 尝试通过目录获取列表，以进行多线程并发和准确的 5 位前缀排序
+        toc_next_list = None
+        toc_prev_list = None
+        
+        # 仅在大批量任务（如总共下载章节数超过5章）时才启用目录解析并发下载，小规模任务直接顺序下载即可
+        if (next_chapters + prev_chapters) >= 2:
+            logger.info(f"任务章节数较多，尝试通过目录解析做并发爬取...")
+            toc_next_list = _ac.get_toc_chapters(url, 'next', next_chapters)
+            toc_prev_list = _ac.get_toc_chapters(url, 'prev', prev_chapters)
+            
+        # 判断自适应序号
+        current_idx = None
+        if toc_next_list:
+            current_idx = toc_next_list[0][2] - 1
+        elif toc_prev_list:
+            current_idx = toc_prev_list[0][2] + 1
+        else:
+            # 顺序兜底的自适应序号
+            parsed_num = _ac.extract_chapter_number(current_chapter_title, url)
+            if parsed_num is not None and parsed_num < 100000:
+                current_idx = parsed_num
+            else:
+                current_idx = prev_chapters + 1
 
-        # 1. 爬取当前章节
-        logger.info(f"[{task_id[:8]}] 开始爬取: {url}")
-        current_article, current_file = _fetch_and_write(url)
+        # 写入当前文章到磁盘
+        current_file = _ac.write_article(current_article, output_dir, format, index=current_idx)
         written_files.append(os.path.basename(current_file))
-        ch_num = _ac.extract_chapter_number(current_article['title'], url)
+        
+        ch_num = _ac.extract_chapter_number(current_chapter_title, url)
         if ch_num is not None:
             crawled_chapters.add(ch_num)
-        crawled_urls.add(url)
-        current_chapter_title = current_article['title']
 
-        # 2. 向前爬取 prev_chapters 章
-        if prev_chapters > 0:
-            prev_url = current_article.get('prev_chapter_url', '')
-            prev_fetched = 0
-            prev_title = current_chapter_title
-            prev_file = current_file
-            while prev_fetched < prev_chapters and prev_url:
-                if prev_url in crawled_urls:
-                    # 跳过但仍要推进链接
-                    try:
-                        _html = _ac.fetch_page(prev_url)
-                        _art = _ac.parse_article(_html, prev_url)
-                        prev_url = _art.get('prev_chapter_url', '')
-                    except Exception:
-                        break
-                    continue
-                try:
-                    art, fp = _fetch_and_write(prev_url)
-                    ch_num = _ac.extract_chapter_number(art['title'], prev_url)
-                    if art['title'] == prev_title and prev_file:
-                        # 同一章的分页，追加
-                        _ac.write_article(art, output_dir, format,
-                                          append=True, existing_file=prev_file)
-                    else:
-                        written_files.append(os.path.basename(fp))
-                        prev_title = art['title']
-                        prev_file = fp
-                        prev_fetched += 1
-                    if ch_num is not None:
-                        crawled_chapters.add(ch_num)
-                    crawled_urls.add(prev_url)
-                    prev_url = art.get('prev_chapter_url', '')
-                except Exception as e:
-                    logger.error(f"向前爬取失败: {e}")
-                    break
+        tasks[task_id]['completed_chapters'] = 1
+        tasks[task_id]['current_chapter_title'] = current_chapter_title
+        tasks[task_id]['progress'] = int((1 / (1 + next_chapters + prev_chapters)) * 100)
+        save_tasks()
 
-        # 3. 向后爬取 next_chapters 章
-        if next_chapters > 0:
-            next_url = current_article.get('next_chapter_url', '')
-            next_fetched = 0
-            next_title = current_chapter_title
-            next_file = current_file
-            while next_fetched < next_chapters and next_url:
-                if next_url in crawled_urls:
-                    # 跳过但必须推进链接，否则死循环
-                    try:
-                        _html = _ac.fetch_page(next_url)
-                        _art = _ac.parse_article(_html, next_url)
-                        next_url = _art.get('next_chapter_url', '')
-                        next_fetched += 1
-                    except Exception:
-                        break
-                    continue
+        # 2. 判断是否可以使用并发目录下载
+        if toc_next_list is not None and toc_prev_list is not None:
+            # 并发模式
+            # 合并下载任务任务列表，每个元素为 (url, title, index)
+            download_tasks = []
+            if prev_chapters > 0:
+                for item in toc_prev_list:
+                    if item[0] not in crawled_urls:
+                        download_tasks.append(item)
+            if next_chapters > 0:
+                for item in toc_next_list:
+                    if item[0] not in crawled_urls:
+                        download_tasks.append(item)
+
+            total_chapters = 1 + len(download_tasks)
+            tasks[task_id]['total_chapters'] = total_chapters
+            tasks[task_id]['progress'] = int((1 / total_chapters) * 100)
+            save_tasks()
+
+            from concurrent.futures import ThreadPoolExecutor
+            completed_lock = threading.Lock()
+            last_saved_pct = -1
+
+            def _download_worker(item):
+                nonlocal last_saved_pct
+                target_url, title, idx = item
+                if cancel_event.is_set():
+                    return
+                pause_event.wait()
+                if cancel_event.is_set():
+                    return
+
                 try:
-                    art, fp = _fetch_and_write(next_url)
-                    ch_num = _ac.extract_chapter_number(art['title'], next_url)
-                    if art['title'] == next_title and next_file:
-                        # 同一章的分页，追加
-                        _ac.write_article(art, output_dir, format,
-                                          append=True, existing_file=next_file)
-                    else:
+                    html_content = _ac.fetch_page(target_url)
+                    article_data = _ac.parse_article(html_content, target_url)
+                    fp = _ac.write_article(article_data, output_dir, format, index=idx)
+                    
+                    # 处理该章节可能存在的分页
+                    next_page_url = article_data.get('next_chapter_url', '')
+                    current_title = article_data.get('title', '')
+                    page_count = 1
+                    while next_page_url and page_count < 3:
+                        if cancel_event.is_set():
+                            break
+                        pause_event.wait()
+                        
+                        try:
+                            page_html = _ac.fetch_page(next_page_url)
+                            page_art = _ac.parse_article(page_html, next_page_url)
+                            if page_art.get('title') == current_title or (page_art.get('title') and current_title and page_art.get('title').replace(' ', '') == current_title.replace(' ', '')):
+                                _ac.write_article(page_art, output_dir, format, append=True, existing_file=fp)
+                                next_page_url = page_art.get('next_chapter_url', '')
+                                page_count += 1
+                            else:
+                                break
+                        except Exception:
+                            break
+
+                    with completed_lock:
                         written_files.append(os.path.basename(fp))
-                        next_title = art['title']
-                        next_file = fp
-                        next_fetched += 1
-                    if ch_num is not None:
-                        crawled_chapters.add(ch_num)
-                    crawled_urls.add(next_url)
-                    next_url = art.get('next_chapter_url', '')
-                except Exception as e:
-                    logger.error(f"向后爬取失败: {e}")
-                    break
+                        crawled_urls.add(target_url)
+                        extracted_num = _ac.extract_chapter_number(article_data['title'], target_url)
+                        if extracted_num is not None:
+                            crawled_chapters.add(extracted_num)
+
+                        tasks[task_id]['completed_chapters'] += 1
+                        comp = tasks[task_id]['completed_chapters']
+                        pct = int((comp / total_chapters) * 100)
+                        tasks[task_id]['progress'] = pct
+                        tasks[task_id]['current_chapter_title'] = article_data.get('title', '')
+                        
+                        # 进度变动 >= 1% 时才写入 tasks.json 节流，避免高频 I/O 阻塞
+                        if pct >= last_saved_pct + 1 or comp == total_chapters:
+                            tasks[task_id]['_last_saved_pct'] = pct
+                            last_saved_pct = pct
+                            save_tasks()
+                except Exception as ex:
+                    logger.error(f"并发下载章节失败 {target_url}: {ex}")
+
+            # 启动线程池并发下载 (并发数 10)
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                executor.map(_download_worker, download_tasks)
+        else:
+            # 顺序兜底模式
+            total_chapters = 1 + prev_chapters + next_chapters
+            
+            # 向前顺序爬取
+            if prev_chapters > 0:
+                prev_url = current_article.get('prev_chapter_url', '')
+                prev_fetched = 0
+                prev_title = current_chapter_title
+                prev_file = current_file
+                while prev_fetched < prev_chapters and prev_url:
+                    if cancel_event.is_set():
+                        break
+                    pause_event.wait()
+                    
+                    if prev_url in crawled_urls:
+                        try:
+                            _html = _ac.fetch_page(prev_url)
+                            _art = _ac.parse_article(_html, prev_url)
+                            prev_url = _art.get('prev_chapter_url', '')
+                        except Exception:
+                            break
+                        continue
+                    try:
+                        art_html = _ac.fetch_page(prev_url)
+                        art = _ac.parse_article(art_html, prev_url)
+                        ch_num = _ac.extract_chapter_number(art['title'], prev_url)
+                        
+                        # 自适应序号
+                        idx = current_idx - (prev_fetched + 1)
+                        
+                        if art['title'] == prev_title and prev_file:
+                            _ac.write_article(art, output_dir, format,
+                                              append=True, existing_file=prev_file)
+                        else:
+                            fp = _ac.write_article(art, output_dir, format, index=idx)
+                            written_files.append(os.path.basename(fp))
+                            prev_title = art['title']
+                            prev_file = fp
+                            prev_fetched += 1
+                            
+                        if ch_num is not None:
+                            crawled_chapters.add(ch_num)
+                        crawled_urls.add(prev_url)
+                        prev_url = art.get('prev_chapter_url', '')
+                        
+                        # 推进进度
+                        tasks[task_id]['completed_chapters'] += 1
+                        comp = tasks[task_id]['completed_chapters']
+                        tasks[task_id]['progress'] = int((comp / total_chapters) * 100)
+                        tasks[task_id]['current_chapter_title'] = art.get('title', '')
+                        save_tasks()
+                    except Exception as e:
+                        logger.error(f"向前顺序爬取失败: {e}")
+                        break
+
+            # 向后顺序爬取
+            if next_chapters > 0:
+                next_url = current_article.get('next_chapter_url', '')
+                next_fetched = 0
+                next_title = current_chapter_title
+                next_file = current_file
+                while next_fetched < next_chapters and next_url:
+                    if cancel_event.is_set():
+                        break
+                    pause_event.wait()
+                    
+                    if next_url in crawled_urls:
+                        try:
+                            _html = _ac.fetch_page(next_url)
+                            _art = _ac.parse_article(_html, next_url)
+                            next_url = _art.get('next_chapter_url', '')
+                            next_fetched += 1
+                        except Exception:
+                            break
+                        continue
+                    try:
+                        art_html = _ac.fetch_page(next_url)
+                        art = _ac.parse_article(art_html, next_url)
+                        ch_num = _ac.extract_chapter_number(art['title'], next_url)
+                        
+                        # 自适应序号
+                        idx = current_idx + (next_fetched + 1)
+                        
+                        if art['title'] == next_title and next_file:
+                            _ac.write_article(art, output_dir, format,
+                                              append=True, existing_file=next_file)
+                        else:
+                            fp = _ac.write_article(art, output_dir, format, index=idx)
+                            written_files.append(os.path.basename(fp))
+                            next_title = art['title']
+                            next_file = fp
+                            next_fetched += 1
+                            
+                        if ch_num is not None:
+                            crawled_chapters.add(ch_num)
+                        crawled_urls.add(next_url)
+                        next_url = art.get('next_chapter_url', '')
+                        
+                        # 推进进度
+                        tasks[task_id]['completed_chapters'] += 1
+                        comp = tasks[task_id]['completed_chapters']
+                        tasks[task_id]['progress'] = int((comp / total_chapters) * 100)
+                        tasks[task_id]['current_chapter_title'] = art.get('title', '')
+                        save_tasks()
+                    except Exception as e:
+                        logger.error(f"向后顺序爬取失败: {e}")
+                        break
+
+        # 判断是否中途退出
+        if cancel_event.is_set():
+            tasks[task_id]['status'] = 'stopped'
+            tasks[task_id]['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            save_tasks()
+            logger.info(f"[{task_id[:8]}] 任务被用户中止")
+            return
 
         # 持久化爬取历史
         try:
@@ -384,7 +621,7 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         except Exception:
             pass
 
-        # 整理输出文件列表（按章节排序）
+        # 整理输出文件列表（自适应5位前缀排序）
         article_extensions = {'.txt', '.md', '.html', '.htm'}
         all_output_files = [
             f for f in os.listdir(output_dir)
@@ -394,16 +631,25 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         ]
 
         def _sort_key(name):
-            m = re.search(r'第(\d+)章', name)
-            return int(m.group(1)) if m else 0
+            prefix_match = re.match(r'^(\d+)_', name)
+            if prefix_match:
+                return int(prefix_match.group(1))
+            m = re.search(r'第([\d一二三四五六七八九十百千万两零]+)[章节回]', name)
+            if m:
+                try:
+                    return _ac.chinese_to_arabic(m.group(1))
+                except Exception:
+                    pass
+            return 999999
 
         sorted_files = sorted(all_output_files, key=_sort_key)
 
-        # 更新任务结果
+        # 更新任务结果为已完成
         tasks[task_id]['status'] = 'completed'
         tasks[task_id]['end_time'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         tasks[task_id]['output_files'] = sorted_files
         tasks[task_id]['file_count'] = len(sorted_files)
+        tasks[task_id]['progress'] = 100
         save_tasks()
 
         add_history({
@@ -439,6 +685,10 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
             'end_time': tasks[task_id]['end_time'],
             'error': str(e)
         })
+    finally:
+        # 清理控制映射以释放内存
+        if task_id in task_controls:
+            del task_controls[task_id]
 # 首页路由
 @app.route('/')
 def index():
@@ -468,6 +718,25 @@ def stats():
 @app.route('/stats.html')
 def stats_html():
     return send_from_directory(FRONTEND_DIR, 'stats.html')
+
+# 探测书名接口
+@app.route('/api/probe_book_title', methods=['GET'])
+@rate_limit_decorator
+def probe_book_title():
+    url = request.args.get('url')
+    if not url:
+        return jsonify({'success': False, 'error': 'URL不能为空'}), 400
+    try:
+        import article_crawler as _ac
+        from bs4 import BeautifulSoup
+        html = _ac.fetch_page(url)
+        soup = BeautifulSoup(html, 'lxml')
+        book_title = _ac.extract_book_title(soup, url)
+        return jsonify({'success': True, 'book_title': book_title})
+    except Exception as e:
+        logger.error(f"探测书名失败 {url}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # 提交爬取任务
 @app.route('/api/crawl', methods=['POST'])
@@ -545,6 +814,71 @@ def get_task_status(task_id):
 def get_all_tasks():
     try:
         return jsonify({'success': True, 'tasks': tasks})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# 暂停任务的API
+@app.route('/api/task/<task_id>/pause', methods=['POST'])
+@rate_limit_decorator
+def pause_task(task_id):
+    try:
+        if task_id not in tasks:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+        
+        info = tasks[task_id]
+        if info.get('status') != 'running':
+            return jsonify({'success': False, 'error': '任务不在运行状态，无法暂停'}), 400
+            
+        if task_id in task_controls:
+            task_controls[task_id]['pause_event'].clear()
+            
+        info['status'] = 'paused'
+        save_tasks()
+        return jsonify({'success': True, 'message': '任务暂停指令已发出'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# 恢复任务的API
+@app.route('/api/task/<task_id>/resume', methods=['POST'])
+@rate_limit_decorator
+def resume_task(task_id):
+    try:
+        if task_id not in tasks:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+            
+        info = tasks[task_id]
+        if info.get('status') != 'paused':
+            return jsonify({'success': False, 'error': '任务未处于暂停状态，无法恢复'}), 400
+            
+        if task_id in task_controls:
+            task_controls[task_id]['pause_event'].set()
+            
+        info['status'] = 'running'
+        save_tasks()
+        return jsonify({'success': True, 'message': '任务恢复指令已发出'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# 停止任务的API
+@app.route('/api/task/<task_id>/stop', methods=['POST'])
+@rate_limit_decorator
+def stop_task(task_id):
+    try:
+        if task_id not in tasks:
+            return jsonify({'success': False, 'error': '任务不存在'}), 404
+            
+        info = tasks[task_id]
+        if info.get('status') not in ('running', 'paused', 'pending'):
+            return jsonify({'success': False, 'error': '任务未处于可停止状态'}), 400
+            
+        if task_id in task_controls:
+            task_controls[task_id]['cancel_event'].set()
+            task_controls[task_id]['pause_event'].set() # 确保 unblock wait()
+            
+        info['status'] = 'stopped'
+        info['error_msg'] = '用户手动终止了下载任务。'
+        save_tasks()
+        return jsonify({'success': True, 'message': '任务已发送停止信号'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -860,8 +1194,35 @@ def get_article_content(filename):
             'error': f'读取文件失败: {str(e)}'
         }), 500
 
+def start_global_hotkey_listener():
+    """
+    启动系统级全局快捷键监听器，按下 Ctrl+Shift+Alt+Q 或 Cmd+Shift+Alt+Q 即可关闭服务器
+    """
+    try:
+        from pynput import keyboard
+        
+        def on_shutdown():
+            logger.info("系统级全局快捷键被触发，正在关闭 Flask 服务器...")
+            time.sleep(0.2)
+            os._exit(0)
+            
+        hotkey_map = {
+            '<ctrl>+<shift>+<alt>+q': on_shutdown,
+            '<cmd>+<shift>+<alt>+q': on_shutdown
+        }
+        
+        listener = keyboard.GlobalHotKeys(hotkey_map)
+        listener.daemon = True
+        listener.start()
+        logger.info("系统级全局快捷键监听已启动。热键：Ctrl+Shift+Alt+Q 或 Cmd+Shift+Alt+Q")
+    except Exception as e:
+        logger.warning(f"无法启动全局快捷键监听器（可能需要 macOS 辅助功能/Accessibility 权限）：{e}")
+
 if __name__ == '__main__':
     import os
+    
+    # 启动系统级全局快捷键监听器
+    start_global_hotkey_listener()
     
     port = int(os.environ.get('PORT', 5001))
     
