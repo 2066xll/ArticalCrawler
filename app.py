@@ -270,12 +270,18 @@ def add_history(record):
     history.append(record)
     save_history(history)
 
+DEFAULT_OUTPUT_DIR = os.path.expanduser('~/Downloads/文章爬取')
+
 # 异步执行爬取任务
 def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
     try:
-        # 将相对路径转为基于 BASE_DIR 的绝对路径，保证写入成功
-        if not os.path.isabs(output_dir):
-            output_dir = os.path.normpath(os.path.join(BASE_DIR, output_dir))
+        # 将默认/相对路径转为用户主目录下的安全保存路径 (~/Downloads/文章爬取)，防止更新 App 时清除文章
+        if not output_dir or output_dir in ('./output', 'output', 'articles'):
+            output_dir = DEFAULT_OUTPUT_DIR
+        elif output_dir.startswith('~'):
+            output_dir = os.path.expanduser(output_dir)
+        elif not os.path.isabs(output_dir):
+            output_dir = os.path.normpath(os.path.join(DEFAULT_OUTPUT_DIR, output_dir))
         os.makedirs(output_dir, exist_ok=True)
 
         # —— 测试目录是否可写（可能被 macOS Data Vault / com.apple.provenance 锁定）——

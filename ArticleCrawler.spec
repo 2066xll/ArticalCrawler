@@ -5,8 +5,23 @@ a = Analysis(
     ['app.py'],
     pathex=[],
     binaries=[],
-    datas=[('frontend', 'frontend')],
-    hiddenimports=['article_crawler'],
+    datas=[
+        ('templates', 'templates'),
+        ('frontend', 'frontend'),
+        ('static', 'static')
+    ],
+    hiddenimports=[
+        'article_crawler',
+        'flask',
+        'jinja2',
+        'markupsafe',
+        'werkzeug',
+        'requests',
+        'bs4',
+        'lxml',
+        'lxml.etree',
+        'lxml.html'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

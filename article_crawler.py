@@ -25,7 +25,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='文章爬取工具')
     parser.add_argument('url', help='要爬取的文章链接')
     parser.add_argument('-f', '--format', choices=['txt', 'md'], default='txt', help='输出格式，默认txt')
-    parser.add_argument('-o', '--output-dir', default='./output', help='输出目录，默认当前目录下的output文件夹')
+    parser.add_argument('-o', '--output-dir', default=os.path.expanduser('~/Downloads/文章爬取'), help='输出目录，默认~/Downloads/文章爬取')
     parser.add_argument('-n', '--chapters', type=int, default=1, help='要爬取的章节数量，默认1表示只获取当前章节，2表示当前章节+下一章，以此类推')
     parser.add_argument('-p', '--prev-chapters', type=int, default=0, help='要向前爬取的章节数量，默认0表示不爬取上一章')
     return parser.parse_args()
