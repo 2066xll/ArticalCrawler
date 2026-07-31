@@ -750,6 +750,15 @@ def probe_book_title():
 @rate_limit_decorator
 def crawl():
     try:
+        # 检查是否已有进行中的活跃任务，防重复提交
+        for tid, t in list(tasks.items()):
+            if t.get('status') in ('running', 'paused', 'pending'):
+                return jsonify({
+                    'success': False,
+                    'error': f'已有任务在狂奔中 (编号: {tid[:8]})，无法重复发起',
+                    'active_task_id': tid
+                }), 409
+
         data = request.json
         if not data:
             return jsonify({'error': '请求体不能为空'}), 400

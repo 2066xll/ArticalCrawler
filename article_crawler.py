@@ -1205,12 +1205,12 @@ def write_article(article, output_dir, output_format, append=False, existing_fil
             # 从标题或URL中提取章节号
             chapter_num = extract_chapter_number(article['title'], article['url'])
             
-            # 优先使用有效的章节号（不超过100000）格式化为5位前缀，
-            # 其次使用传入的 index 序号，最后使用毫秒时间戳。
-            if chapter_num is not None and chapter_num < 100000:
-                prefix = f"{chapter_num:05d}_"
-            elif index is not None:
+            # 优先使用传入的目录/批次 index 绝对序号格式化为 5 位前缀（确保 100% 顺序无碰撞），
+            # 其次使用标题中解析出的有效章节号，最后使用时间戳。
+            if index is not None:
                 prefix = f"{index:05d}_"
+            elif chapter_num is not None and chapter_num < 100000:
+                prefix = f"{chapter_num:05d}_"
             else:
                 # 备用：使用时间戳生成前缀
                 timestamp = int(time.time() * 1000)

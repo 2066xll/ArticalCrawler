@@ -578,7 +578,7 @@
         let activeTaskId = null;
         let pollTimeout = null;
 
-        function lockUI() {
+        function lockUI(taskId) {
             document.getElementById('url').disabled = true;
             document.getElementById('format').disabled = true;
             document.getElementById('output_dir').disabled = true;
@@ -586,6 +586,9 @@
             document.getElementById('prev_chapters').disabled = true;
             const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
             if (submitBtn) submitBtn.disabled = true;
+            if (taskId) {
+                try { localStorage.setItem('active_crawler_task_id', taskId); } catch(e){}
+            }
         }
 
         function unlockUI() {
@@ -597,7 +600,19 @@
             const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
             if (submitBtn) submitBtn.disabled = false;
             document.getElementById('task-control-buttons').style.display = 'none';
+            try { localStorage.removeItem('active_crawler_task_id'); } catch(e){}
         }
+
+        // 页面初始化脚本载入时第一时间同步锁定，防止刷新时的解锁空隙
+        (function initLockState() {
+            try {
+                const savedTid = localStorage.getItem('active_crawler_task_id');
+                if (savedTid) {
+                    lockUI(savedTid);
+                    activeTaskId = savedTid;
+                }
+            } catch(e){}
+        })();
 
         document.getElementById('crawl-form').addEventListener('submit', function (e) {
             e.preventDefault();
@@ -639,6 +654,15 @@
             })
                 .then(response => response.json())
                 .then(data => {
+                    if (data.active_task_id) {
+                        const tid = data.active_task_id;
+                        activeTaskId = tid;
+                        lockUI(tid);
+                        statusMessage.className = 'status-message alert-warning';
+                        statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> ${data.error || '已有任务在狂奔中'}`;
+                        pollTaskStatus(tid);
+                        return;
+                    }
                     if (data.error) {
                         statusMessage.className = 'status-message alert-danger';
                         statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: ${data.error}`;
@@ -658,6 +682,7 @@
                     }
 
                     activeTaskId = taskId;
+                    lockUI(taskId);
                     statusMessage.innerHTML = `<iconify-icon icon="ph:engine-bold"></iconify-icon> 任务编号: ${taskId}，正在狂奔...`;
                     pollTaskStatus(taskId);
                 })
