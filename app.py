@@ -382,8 +382,8 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
         # 仅在大批量任务（如总共下载章节数超过5章）时才启用目录解析并发下载，小规模任务直接顺序下载即可
         if (next_chapters + prev_chapters) >= 2:
             logger.info(f"任务章节数较多，尝试通过目录解析做并发爬取...")
-            toc_next_list = _ac.get_toc_chapters(url, 'next', next_chapters)
-            toc_prev_list = _ac.get_toc_chapters(url, 'prev', prev_chapters)
+            toc_next_list = _ac.get_toc_chapters(url, 'next', next_chapters, initial_html=current_html)
+            toc_prev_list = _ac.get_toc_chapters(url, 'prev', prev_chapters, initial_html=current_html)
             
         # 判断自适应序号
         current_idx = None
@@ -447,6 +447,13 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
                 try:
                     html_content = _ac.fetch_page(target_url)
                     article_data = _ac.parse_article(html_content, target_url)
+                    
+                    if not article_data.get('is_valid', True):
+                        logger.warning(f"跳过质量校验未通过的页面 ({target_url}): {article_data.get('validation_reason')}")
+                        with completed_lock:
+                            tasks[task_id]['completed_chapters'] += 1
+                        return
+
                     fp = _ac.write_article(article_data, output_dir, format, index=idx)
                     
                     # 处理该章节可能存在的分页

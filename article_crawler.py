@@ -33,12 +33,22 @@ def parse_args():
 
 # 线程本地会话（每个线程独立 Session，避免多线程 Cookie 串扰）
 import threading as _threading
+from requests.adapters import HTTPAdapter
+
 _thread_local = _threading.local()
 
+# 全局目录短期内存缓存 (start_url -> (timestamp, toc_chapters))
+_toc_cache = {}
+_toc_cache_lock = _threading.Lock()
+
 def _get_session():
-    """获取当前线程专用的 requests.Session"""
+    """获取当前线程专用的 requests.Session，配置高性能连接池与自动重试"""
     if not hasattr(_thread_local, 'session'):
-        _thread_local.session = requests.Session()
+        session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=20, pool_maxsize=20, max_retries=3)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        _thread_local.session = session
     return _thread_local.session
 
 # 常用 User-Agent 列表
@@ -201,6 +211,77 @@ def extract_book_title(soup, url):
             return text
 
     return "未知书籍"
+
+
+def clean_article_text(content, url=""):
+    """深层清洗正文中的广告、打赏提示、防爬水印及非正文垃圾字符串"""
+    if not content:
+        return ""
+    
+    # 移除 bqgns / 笔趣阁注入的独立 "go" 水印（含紧挨中文的情况）
+    content = re.sub(r'(?i)\bgo\b|go(?=[\u4e00-\u9fff])|(?<=[\u4e00-\u9fff])go', '', content)
+    
+    # 常见小说网站的水印、广告段落与提示词
+    noise_patterns = [
+        r'笔\s*趣\s*阁\s*(?:www\.[a-z0-9\.\-]+\.[a-z]+)?',
+        r'https?://[a-zA-Z0-9\./\-_]+',
+        r'www\.[a-zA-Z0-9\./\-_]+',
+        r'（?\s*本章未完[，,]\s*请?点击下一页继续阅读\s*）?',
+        r'（?\s*本章未完[，,]\s*翻页继续阅读\s*）?',
+        r'【\s*如遇缺章[、,]\s*乱序.*?\s*】',
+        r'请安装最新版爱阅小说app.*',
+        r'点击下一页继续阅读.*',
+        r'推荐本书.*',
+        r'加入书签.*',
+        r'投票推荐.*',
+        r'手机用户请到.*阅读.*',
+    ]
+    
+    lines = content.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        l = line.strip()
+        if not l:
+            continue
+        skip = False
+        for pat in noise_patterns:
+            if re.search(pat, l, re.IGNORECASE):
+                l = re.sub(pat, '', l, flags=re.IGNORECASE).strip()
+                if not l or len(l) < 5:
+                    skip = True
+                    break
+        if not skip and l:
+            cleaned_lines.append(l)
+            
+    return '\n\n'.join(cleaned_lines)
+
+
+def is_valid_chapter(article):
+    """
+    质量闸口校验：拦截非正文/广告/404/系统错误等垃圾页面。
+    返回: (is_valid: bool, reason: str)
+    """
+    if not article:
+        return False, "文章数据为空"
+    
+    content = article.get('content', '')
+    title = article.get('title', '')
+    
+    # 纯文字长度检查（剔除所有空白字符后的中文字/字符数）
+    pure_text = re.sub(r'\s+', '', content)
+    if len(pure_text) < 150:
+        return False, f"正文有效字数不足 ({len(pure_text)} 字 < 150 字)，疑似垃圾/广告页面"
+        
+    # 检查明显的错误与系统提示关键字
+    error_keywords = [
+        "404 Not Found", "页面不存在", "系统维护中", "请稍后重试", 
+        "验证码", "访问过于频繁", "站长推荐", "无弹窗广告"
+    ]
+    for kw in error_keywords:
+        if kw in title or (len(pure_text) < 300 and kw in content):
+            return False, f"检测到错误/广告关键字: '{kw}'"
+            
+    return True, "有效章节"
 
 
 def parse_article(html_content, url):
@@ -722,7 +803,10 @@ def parse_article(html_content, url):
     next_chapter_url = clean_url(next_chapter_url)
     prev_chapter_url = clean_url(prev_chapter_url)
     
-    return {
+    # 彻底深层清洗文本
+    content = clean_article_text(content, url)
+    
+    res = {
         'title': title,
         'content': content,
         'publish_time': publish_time,
@@ -731,49 +815,135 @@ def parse_article(html_content, url):
         'next_chapter_url': next_chapter_url,
         'prev_chapter_url': prev_chapter_url
     }
+    
+    # 质量闸口校验
+    is_val, val_reason = is_valid_chapter(res)
+    res['is_valid'] = is_val
+    res['validation_reason'] = val_reason
+    if not is_val:
+        logger.warning(f"页面质量校验未通过 ({url}): {val_reason}")
+        
+    return res
 
 
-def get_toc_chapters(start_url, direction, count):
+def _slice_toc_result(toc_chapters, start_url, direction, count, soup_start=None):
+    """根据起点 URL 和方向对目录列表切片"""
+    from urllib.parse import urlparse
+    import re
+
+    # 定位起点 URL 在目录中的索引
+    start_idx = -1
+    for i, (url, title) in enumerate(toc_chapters):
+        if url == start_url or url.replace('https://', 'http://') == start_url.replace('https://', 'http://'):
+            start_idx = i
+            break
+            
+    if start_idx == -1:
+        start_path = urlparse(start_url).path.rstrip('/')
+        for i, (url, title) in enumerate(toc_chapters):
+            if urlparse(url).path.rstrip('/') == start_path:
+                start_idx = i
+                break
+                
+    if start_idx == -1 and soup_start:
+        start_title = ""
+        for selector in ['h1', 'title']:
+            el = soup_start.select_one(selector)
+            if el:
+                start_title = el.get_text(strip=True)
+                if selector == 'title' and '_' in start_title:
+                    start_title = start_title.split('_')[0]
+                break
+        if start_title:
+            start_title_clean = re.sub(r'\s+', '', start_title)
+            for i, (url, title) in enumerate(toc_chapters):
+                if re.sub(r'\s+', '', title) == start_title_clean or start_title_clean in re.sub(r'\s+', '', title):
+                    start_idx = i
+                    break
+                    
+    if start_idx == -1:
+        logger.warning("在目录中无法定位起点章节，降级到顺序抓取模式")
+        return None
+        
+    logger.info(f"成功定位起点章节在目录中的索引: {start_idx} (章节: {toc_chapters[start_idx][1]})")
+    
+    result = []
+    if direction == 'next':
+        end_idx = min(start_idx + count + 1, len(toc_chapters))
+        for i in range(start_idx + 1, end_idx):
+            url, title = toc_chapters[i]
+            result.append((url, title, i + 1))
+    elif direction == 'prev':
+        start_pos = max(start_idx - count, 0)
+        for i in range(start_idx - 1, start_pos - 1, -1):
+            url, title = toc_chapters[i]
+            result.append((url, title, i + 1))
+            
+    logger.info(f"切片完成，切片方向: {direction}, 切片数量: {len(result)}")
+    return result
+
+
+def get_toc_chapters(start_url, direction, count, initial_html=None):
     """
     自适应地解析小说目录，并获取目标范围内的所有章节 URL 和标题。
+    支持可选参数 initial_html (减少重复请求) 与短期内存缓存 _toc_cache。
     返回: 包含 (abs_url, chapter_title, toc_index) 元组的列表。
     """
     import re
+    import time
     from urllib.parse import urlparse, urlunparse, urljoin
     from bs4 import BeautifulSoup
+    
+    # 检查短时内存缓存
+    now = time.time()
+    with _toc_cache_lock:
+        if start_url in _toc_cache:
+            entry_time, cached_toc = _toc_cache[start_url]
+            if now - entry_time < 3600:
+                logger.info(f"命中目录短时内存缓存: {start_url}")
+                return _slice_toc_result(cached_toc, start_url, direction, count)
     
     logger.info(f"开始尝试自适应解析目录，起点 URL: {start_url}")
     
     try:
-        # 1. 抓取当前章节页面以寻找目录页链接
-        html_start = fetch_page(start_url)
+        # 1. 获取或直接复用起点 HTML
+        if initial_html:
+            html_start = initial_html
+        else:
+            html_start = fetch_page(start_url)
         soup_start = BeautifulSoup(html_start, 'lxml')
         
         # 寻找目录页链接
         toc_url = None
         
-        # 优先从a标签文本找
-        for a in soup_start.find_all('a'):
-            href = a.get('href')
-            if not href:
-                continue
-            text = a.get_text(strip=True)
-            # 匹配 "目录", "章节列表", "返回目录", "返回书页", "返回书", "书页" 等
-            if re.search(r'目录|章节列表|返回目录|返回书页|书页|主页|回目录', text):
-                candidate_url = urljoin(start_url, href)
-                # 排除一些明显不是的
-                if 'javascript' not in href and candidate_url != start_url:
-                    toc_url = candidate_url
-                    break
+        # 针对 bqgns.com 类型的结构开启 O(1) 目录地址推导
+        if 'bqgns.com' in start_url:
+            m = re.search(r'(https?://[^/]+/book/\d+/)', start_url)
+            if m:
+                toc_url = m.group(1)
+                logger.info(f"针对 bqgns.com 开启 O(1) 目录 URL 直接推导: {toc_url}")
         
-        # 备选：如果没找到，使用 URL 结构剥离最后一级
+        if not toc_url:
+            # 优先从 a 标签文本找
+            for a in soup_start.find_all('a'):
+                href = a.get('href')
+                if not href:
+                    continue
+                text = a.get_text(strip=True)
+                if re.search(r'目录|章节列表|返回目录|返回书页|书页|主页|回目录', text):
+                    candidate_url = urljoin(start_url, href)
+                    if 'javascript' not in href and candidate_url != start_url:
+                        toc_url = candidate_url
+                        break
+        
+        # 备选：使用 URL 结构剥离最后一级
         if not toc_url:
             parsed_start = urlparse(start_url)
             path_parts = parsed_start.path.strip('/').split('/')
             if len(path_parts) >= 2:
                 parent_path = '/' + '/'.join(path_parts[:-1]) + '/'
                 toc_url = urlunparse((parsed_start.scheme, parsed_start.netloc, parent_path, '', '', ''))
-                logger.info(f"未找到目录链接，尝试使用URL层级推导目录: {toc_url}")
+                logger.info(f"尝试使用 URL 层级推导目录: {toc_url}")
             else:
                 toc_url = start_url # 兜底
                 
@@ -810,53 +980,53 @@ def get_toc_chapters(start_url, direction, count):
                 if not href or 'javascript' in href:
                     continue
                 abs_url = urljoin(current_toc_url, href)
-                # 确保是同域链接
                 parsed_abs = urlparse(abs_url)
                 if parsed_abs.netloc != parsed_toc.netloc:
                     continue
                     
                 text = a.get_text(strip=True)
-                # 过滤掉过短或过长的非标题文本
                 if not text or len(text) > 80:
                     continue
                     
-                # 过滤掉返回首页、书架等常见非章节导航链接
                 if re.search(r'首页|书架|书页|登录|注册|书库|作者|排行|加入书签|返回|目录', text):
                     continue
                     
                 all_links.append((abs_url, text))
                 
+            # 极速提前退出机制：在正向爬取时，若已找到起点且收集到的后序章节数已足够，无需继续抓取剩余所有目录分页
+            if direction == 'next' and count > 0:
+                idx_in_all = -1
+                for i, (u, _) in enumerate(all_links):
+                    if u == start_url or urlparse(u).path == urlparse(start_url).path:
+                        idx_in_all = i
+                        break
+                if idx_in_all != -1 and (len(all_links) - idx_in_all) >= (count + 5):
+                    logger.info(f"目录已包含起点 URL 且后续章节数量足够 ({len(all_links) - idx_in_all} >= {count + 5})，触发极速提前退出")
+                    break
+
             # 寻找“下一页”的目录分页链接
             next_toc_url = None
             for a in soup_toc.find_all('a'):
                 text = a.get_text(strip=True)
                 href = a.get('href')
                 if href and 'javascript' not in href and ('下一页' in text or '下页' in text):
-                    # 避免在目录页误配到正文翻页链接，确保链接看起来像目录的分页
                     cand_url = urljoin(current_toc_url, href)
-                    # 限制和目录 URL 路径一致，或者包含 sort/page 参数等
                     if urlparse(cand_url).path == parsed_toc.path or 'page=' in href or 'sort=' in href:
                         next_toc_url = cand_url
                         break
             
             current_toc_url = next_toc_url
             
-        # 对解析到的链接进行过滤和去重
+        # 对解析到的链接进行精准过滤和去重
         toc_chapters = []
         seen_urls = set()
         
-        # 寻找与当前页 URL 最相似的链接集
-        # 提取当前页面的文件名或者路径前缀作为相似特征
         start_path_parts = parsed_toc.path.strip('/').split('/')
         
         for url, title in all_links:
             if url in seen_urls:
                 continue
                 
-            # 判断是否可能是章节链接：
-            # 1. 标题含有 章节 标志；或者
-            # 2. 标题以数字/中文数字开头；或者
-            # 3. 链接与 start_url 的路径有很高的相似度
             is_chapter = False
             
             # 检查标题特征
@@ -865,21 +1035,12 @@ def get_toc_chapters(start_url, direction, count):
             elif re.match(r'^[\d一二三四五六七八九十百千万两零]+', title.strip()):
                 is_chapter = True
                 
-            # 检查 URL 相似度 (例如路径的相似部分)
-            # 比如 start_url: /book/50045/257, candidate: /book/50045/258
+            # 检查 URL 路径层级相似度
             parsed_cand = urlparse(url)
             cand_parts = parsed_cand.path.strip('/').split('/')
             
-            # 如果是 bqgns.com 类型的结构
             if len(cand_parts) >= 2 and len(start_path_parts) >= 2:
-                # 检查倒数第二级是否相同（如 bookid 相同）
                 if cand_parts[-2] == start_path_parts[-1] or (len(cand_parts) > 2 and len(start_path_parts) > 2 and cand_parts[-2] == start_path_parts[-2]):
-                    is_chapter = True
-            
-            # 如果没有任何特征匹配，但 URL 路径包含数字，且跟 start_url 同域，我们也予以保留作为备选
-            if not is_chapter:
-                # 检查是否包含数字文件名
-                if re.search(r'/\d+(?:_\d+)?(?:\.html?)?$', parsed_cand.path):
                     is_chapter = True
                     
             if is_chapter:
@@ -892,63 +1053,11 @@ def get_toc_chapters(start_url, direction, count):
             
         logger.info(f"目录页解析完成，共找到 {len(toc_chapters)} 个章节链接")
         
-        # 3. 定位起点 URL 在目录中的索引
-        start_idx = -1
-        # 先尝试完全匹配 URL
-        for i, (url, title) in enumerate(toc_chapters):
-            if url == start_url or url.replace('https://', 'http://') == start_url.replace('https://', 'http://'):
-                start_idx = i
-                break
-                
-        # 若完全匹配失败，尝试通过 URL 路径的最后部分匹配（如章节 ID 或文件名）
-        if start_idx == -1:
-            start_path = urlparse(start_url).path.rstrip('/')
-            for i, (url, title) in enumerate(toc_chapters):
-                if urlparse(url).path.rstrip('/') == start_path:
-                    start_idx = i
-                    break
-                    
-        # 若依然失败，尝试通过标题匹配
-        if start_idx == -1:
-            # 获取当前文章标题作为参考（从 soup_start 提取标题）
-            start_title = ""
-            for selector in ['h1', 'title']:
-                el = soup_start.select_one(selector)
-                if el:
-                    start_title = el.get_text(strip=True)
-                    if selector == 'title' and '_' in start_title:
-                        start_title = start_title.split('_')[0]
-                    break
-            if start_title:
-                start_title_clean = re.sub(r'\s+', '', start_title)
-                for i, (url, title) in enumerate(toc_chapters):
-                    if re.sub(r'\s+', '', title) == start_title_clean or start_title_clean in re.sub(r'\s+', '', title):
-                        start_idx = i
-                        break
-                        
-        if start_idx == -1:
-            logger.warning("在目录中无法定位起点章节，降级到顺序抓取模式")
-            return None
+        # 存入 short-lived 内存缓存
+        with _toc_cache_lock:
+            _toc_cache[start_url] = (now, toc_chapters)
             
-        logger.info(f"成功定位起点章节在目录中的索引: {start_idx} (章节: {toc_chapters[start_idx][1]})")
-        
-        # 4. 根据方向和数量切片
-        result = []
-        
-        # 传出格式：[(url, title, toc_index), ...]，toc_index 是 1-based index (即 i + 1)
-        if direction == 'next':
-            end_idx = min(start_idx + count + 1, len(toc_chapters))
-            for i in range(start_idx + 1, end_idx):
-                url, title = toc_chapters[i]
-                result.append((url, title, i + 1))
-        elif direction == 'prev':
-            start_pos = max(start_idx - count, 0)
-            for i in range(start_idx - 1, start_pos - 1, -1):
-                url, title = toc_chapters[i]
-                result.append((url, title, i + 1))
-        
-        logger.info(f"切片完成，切片方向: {direction}, 切片数量: {len(result)}")
-        return result
+        return _slice_toc_result(toc_chapters, start_url, direction, count, soup_start)
         
     except Exception as e:
         logger.error(f"自适应解析目录时出错: {e}", exc_info=True)
@@ -1007,7 +1116,7 @@ def chinese_to_arabic(chinese_num):
 
 
 def extract_chapter_number(title, url=None):
-    """从章节标题中提取章节号，支持中文数字、数字前缀及URL提取"""
+    """从章节标题中提取真正的章节号（严格仅从标题文本解析，防止URL数据库ID误判）"""
     import re
     if not title:
         return None
@@ -1040,46 +1149,19 @@ def extract_chapter_number(title, url=None):
     if match3:
         return int(match3.group(1))
 
-    # 模式 4: 直接从URL中提取章节号（作为备选方案）
-    if url:
-        # 优先匹配bqgns.com的URL格式：/book/50045/257
-        url_pattern = r'/book/\d+/(\d+)'
-        url_match = re.search(url_pattern, url)
-        if url_match:
-            val = int(url_match.group(1))
-            if val < 100000:
-                return val
-        
-        # 匹配笔趣阁等网站的URL格式：/biqu42484/21341278.html
-        biquge_pattern = r'/([^/]+)/(\d+)(?:_2)?\.html$'
-        biquge_match = re.search(biquge_pattern, url)
-        if biquge_match:
-            val = int(biquge_match.group(2))
-            if val < 100000:
-                return val
-
-    # 模式 5: 匹配纯数字格式，如"123. 标题"
-    pattern5 = r'^(\d+)\.'
+    # 模式 4: 匹配纯数字格式，如"123. 标题"
+    pattern4 = r'^(\d+)\.'
+    match4 = re.search(pattern4, title)
+    if match4:
+        return int(match4.group(1))
+    
+    # 模式 5: 匹配数字+标题格式，如"123 标题"
+    pattern5 = r'^(\d+)\s'
     match5 = re.search(pattern5, title)
     if match5:
         return int(match5.group(1))
     
-    # 模式 6: 匹配数字+标题格式，如"123 标题"
-    pattern6 = r'^(\d+)\s'
-    match6 = re.search(pattern6, title)
-    if match6:
-        return int(match6.group(1))
-    
-    # 最终备选方案：从URL路径中提取最后一个数字
-    if url:
-        url_pattern = r'(\d+)(?:_\d+)?(?:\.html?)?$'
-        url_match = re.search(url_pattern, url)
-        if url_match:
-            val = int(url_match.group(1))
-            if val < 100000:
-                return val
-    
-    # 最后的最终备选方案：标题中包含的第一个纯数字且小于100000
+    # 备选方案：标题中包含的第一个纯数字且小于100000
     digits_match = re.search(r'\d+', title)
     if digits_match:
         val = int(digits_match.group(0))
