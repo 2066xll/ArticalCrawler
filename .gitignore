@@ -1,44 +1,57 @@
-# 虚拟环境
+# Python 编译与虚拟环境
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.venv/
 venv/
 env/
-*.pyc
-__pycache__/
+ENV/
+get-pip.py
 
-# 输出文件
+# 运行时数据与日志
+data/
+*.log
+*.test
+*.tmp
+.write_probe
+
+# 测试输出与抓取目录
+test_output/
+test_output*/
+test_crawl_output/
+test_crawl_output*/
+
+# 输出文章与归档数据
 output/
 output_*/
+articles/
+归档/
+合并后的文章.txt
+*.txt
+!README.md
+!requirements.txt
 
-# 数据文件
-data/
-
-# 环境变量
-.env
-
-# 日志文件
-*.log
-
-# IDE配置
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# 操作系统文件
-.DS_Store
-Thumbs.db
-
-# 测试文件
-*.test
-
-# 构建文件
+# 打包构建产物
 build/
 dist/
 *.egg-info/
 
-# 本地运行和缓存
-.venv/
-articles/
-归档/
-get-pip.py
-合并后的文章.txt
+# IDE 与编辑器配置
+.vscode/
+.idea/
+.trae/
+*.swp
+*.swo
+*~
+
+# 操作系统缓存
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# Cloudflare 与部署工具
+.wrangler/
+node_modules/

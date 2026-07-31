@@ -270,7 +270,86 @@ def add_history(record):
     history.append(record)
     save_history(history)
 
-DEFAULT_OUTPUT_DIR = os.path.expanduser('~/Downloads/文章爬取')
+CONFIG_FILE = os.path.join(BASE_DIR, 'data', 'config.json')
+
+def load_config():
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"读取配置文件失败: {e}")
+    return {}
+
+def save_config(new_config):
+    cfg = load_config()
+    cfg.update(new_config)
+    try:
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"保存配置文件失败: {e}")
+    return cfg
+
+DEFAULT_OUTPUT_DIR = load_config().get('output_dir') or os.path.expanduser('~/Downloads/文章爬取')
+
+@app.route('/api/config', methods=['GET', 'POST'])
+@rate_limit_decorator
+def api_config():
+    if request.method == 'POST':
+        data = request.json or {}
+        cfg = save_config(data)
+        return jsonify({'success': True, 'config': cfg})
+    else:
+        cfg = load_config()
+        if 'output_dir' not in cfg:
+            cfg['output_dir'] = DEFAULT_OUTPUT_DIR
+        return jsonify({'success': True, 'config': cfg})
+
+@app.route('/api/select_folder', methods=['POST'])
+@rate_limit_decorator
+def api_select_folder():
+    """打开原生图形化 Finder/文件选择框，让用户选择存储目录并自动持久化记录"""
+    try:
+        # macOS 环境优先尝试 osascript 打开 Finder 目录选择器
+        if sys.platform == 'darwin':
+            cmd = [
+                'osascript', '-e',
+                'POSIX path of (choose folder with prompt "选择小说保存文件夹")'
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if res.returncode == 0:
+                selected_path = res.stdout.strip().rstrip('/')
+                if selected_path:
+                    save_config({'output_dir': selected_path})
+                    return jsonify({'success': True, 'path': selected_path})
+            elif "canceled" in res.stderr.lower() or "User canceled" in res.stderr:
+                return jsonify({'success': False, 'canceled': True})
+
+        # 跨平台 / 备选方案: tkinter.filedialog
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes('-topmost', True)
+            folder = filedialog.askdirectory(title="选择小说保存文件夹")
+            root.destroy()
+            if folder:
+                folder = os.path.normpath(folder)
+                save_config({'output_dir': folder})
+                return jsonify({'success': True, 'path': folder})
+            return jsonify({'success': False, 'canceled': True})
+        except Exception as tk_err:
+            logger.warning(f"tkinter 对话框无法打开: {tk_err}")
+
+        return jsonify({'success': False, 'error': '系统无法弹出选择器'}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'canceled': True})
+    except Exception as e:
+        logger.error(f"图形化选择文件夹失败: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # 异步执行爬取任务
 def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):

@@ -493,8 +493,13 @@
                     <label for="output_dir" class="form-label">
                         <iconify-icon icon="ph:folder-open-bold"></iconify-icon> 存哪儿？
                     </label>
-                    <input type="text" class="form-control" id="output_dir" name="output_dir" value="~/Downloads/文章爬取" placeholder="~/Downloads/文章爬取">
-                    <div class="form-text">默认保存在“下载/文章爬取”文件夹中，更新软件也不会删除文章。</div>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="output_dir" name="output_dir" value="~/Downloads/文章爬取" readonly placeholder="点击右侧按钮选择保存目录">
+                        <button type="button" class="btn btn-secondary" id="btn-select-folder" style="font-weight: bold;">
+                            <iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选择文件夹
+                        </button>
+                    </div>
+                    <div class="form-text">已开启图形选框与自动记忆，选定后更新软件也不会丢失文章。</div>
                 </div>
 
                 <div class="d-flex flex-column flex-md-row gap-3 mt-5" style="flex-wrap: wrap;">
@@ -584,6 +589,8 @@
             document.getElementById('output_dir').disabled = true;
             document.getElementById('next_chapters').disabled = true;
             document.getElementById('prev_chapters').disabled = true;
+            const selectBtn = document.getElementById('btn-select-folder');
+            if (selectBtn) selectBtn.disabled = true;
             const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
             if (submitBtn) submitBtn.disabled = true;
             if (taskId) {
@@ -597,11 +604,31 @@
             document.getElementById('output_dir').disabled = false;
             document.getElementById('next_chapters').disabled = false;
             document.getElementById('prev_chapters').disabled = false;
+            const selectBtn = document.getElementById('btn-select-folder');
+            if (selectBtn) selectBtn.disabled = false;
             const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
             if (submitBtn) submitBtn.disabled = false;
             document.getElementById('task-control-buttons').style.display = 'none';
             try { localStorage.removeItem('active_crawler_task_id'); } catch(e){}
         }
+
+        // 载入保存的存储位置
+        (function loadSavedConfig() {
+            try {
+                const localDir = localStorage.getItem('saved_output_dir');
+                if (localDir) {
+                    document.getElementById('output_dir').value = localDir;
+                }
+            } catch(e){}
+            fetch('/api/config')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && d.config && d.config.output_dir) {
+                        document.getElementById('output_dir').value = d.config.output_dir;
+                        try { localStorage.setItem('saved_output_dir', d.config.output_dir); } catch(e){}
+                    }
+                }).catch(function(){});
+        })();
 
         // 页面初始化脚本载入时第一时间同步锁定，防止刷新时的解锁空隙
         (function initLockState() {
@@ -613,6 +640,31 @@
                 }
             } catch(e){}
         })();
+
+        // 图形化文件夹选择按钮点击处理
+        document.getElementById('btn-select-folder').addEventListener('click', function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 正在选择...';
+
+            fetch('/api/select_folder', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选择文件夹';
+                    if (data.success && data.path) {
+                        document.getElementById('output_dir').value = data.path;
+                        try { localStorage.setItem('saved_output_dir', data.path); } catch(e){}
+                    } else if (!data.canceled && data.error) {
+                        alert(data.error || '选择目录失败');
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选择文件夹';
+                    alert('网络出错: ' + err.message);
+                });
+        });
 
         document.getElementById('crawl-form').addEventListener('submit', function (e) {
             e.preventDefault();
