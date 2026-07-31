@@ -1121,6 +1121,14 @@ def scan_directory():
         # 1. 动态收集要扫描的路径列表
         scan_targets = []
         
+        # 0. 第一优先级：用户显式选择并记忆的存储目录
+        custom_dir = request.args.get('dir') or load_config().get('output_dir')
+        if custom_dir:
+            c_path = os.path.normpath(os.path.expanduser(custom_dir))
+            if os.path.exists(c_path):
+                bname = os.path.basename(c_path) or '已选书库'
+                scan_targets.append((c_path, f'已选书库 ({bname})'))
+
         # 优先从抓取历史中搜集成功存储的绝对路径
         try:
             history = load_history()
@@ -1201,7 +1209,8 @@ def scan_directory():
         
         return jsonify({
             'success': True,
-            'results': results
+            'results': results,
+            'custom_dir': custom_dir or ''
         })
     except Exception as e:
         logger.error(f"扫描文件夹失败: {e}", exc_info=True)

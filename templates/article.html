@@ -832,12 +832,18 @@
     <!-- Scanner Sidebar -->
     <div class="toc-overlay" id="scannerOverlay" onclick="toggleScanner()"></div>
     <div class="toc-drawer" id="scannerDrawer">
-        <div class="toc-header">
+        <div class="toc-header" style="display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 1rem;">
             <span><iconify-icon icon="ph:books-bold"></iconify-icon> 本地书架</span>
-            <button class="btn btn-ghost" onclick="toggleScanner()" style="padding:.2rem .4rem">
-                <iconify-icon icon="ph:x-bold"></iconify-icon>
-            </button>
+            <div style="display: flex; gap: 0.4rem; align-items: center;">
+                <button class="btn btn-ghost" id="btn-reader-select-folder" onclick="selectAndScanFolder()" title="选择并记忆扫描文件夹" style="font-size:0.8rem; padding:.2rem .5rem; border:1px solid var(--border-color); border-radius:6px; display:flex; align-items:center; gap:0.3rem;">
+                    <iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选目录
+                </button>
+                <button class="btn btn-ghost" onclick="toggleScanner()" style="padding:.2rem .4rem">
+                    <iconify-icon icon="ph:x-bold"></iconify-icon>
+                </button>
+            </div>
         </div>
+        <div id="scannedFolderTag" style="padding: 0.4rem 1rem; font-size: 0.72rem; color: var(--text-muted); border-bottom: 1px solid var(--border-color); font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none;"></div>
         <div class="toc-list" id="scannerList">
             <div style="padding:1rem;text-align:center;color:var(--text-muted)">自动搜寻书籍中...</div>
         </div>
@@ -1246,12 +1252,49 @@
                 }
             };
 
-            window.triggerScan = async function () {
-                const el = document.getElementById('scannerList');
-                el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted)"><iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 正在搜寻书籍...</div>';
+            window.selectAndScanFolder = async function () {
+                const btn = document.getElementById('btn-reader-select-folder');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 选择中...';
+                }
                 try {
-                    const resp = await fetch('/api/scan');
+                    const resp = await fetch('/api/select_folder', { method: 'POST' });
                     const data = await resp.json();
+                    if (data.success && data.path) {
+                        try { localStorage.setItem('saved_output_dir', data.path); } catch(e){}
+                        await triggerScan(data.path);
+                    } else if (!data.canceled && data.error) {
+                        alert(data.error || '选择目录失败');
+                    }
+                } catch(e) {
+                    alert('网络出错: ' + e.message);
+                } finally {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选目录';
+                    }
+                }
+            };
+
+            window.triggerScan = async function (targetDir) {
+                const el = document.getElementById('scannerList');
+                const tag = document.getElementById('scannedFolderTag');
+                el.innerHTML = '<div style="padding:1rem;text-align:center;color:var(--text-muted)"><iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 正在搜寻书籍...</div>';
+                
+                let scanUrl = '/api/scan';
+                const savedDir = targetDir || (function(){ try{ return localStorage.getItem('saved_output_dir'); }catch(e){ return null; } })();
+                if (savedDir) {
+                    scanUrl += '?dir=' + encodeURIComponent(savedDir);
+                }
+
+                try {
+                    const resp = await fetch(scanUrl);
+                    const data = await resp.json();
+                    if (data.custom_dir && tag) {
+                        tag.innerText = '📁 当前目录: ' + data.custom_dir;
+                        tag.style.display = 'block';
+                    }
                     if (!data.success) {
                         el.innerHTML = `<div style="padding:1rem;text-align:center;color:var(--accent)">错误: ${data.error}</div>`;
                         return;
