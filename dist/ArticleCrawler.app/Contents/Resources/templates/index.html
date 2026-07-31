@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文章抓取机器人</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --main-accent: #ff4d4d;
+            /* 避免紫色，使用鲜明的红色 */
+            --border-color: #1a1a1a;
+            --card-bg: #ffffff;
+            --text-color: #1a1a1a;
+            --shadow-offset: 6px;
+            --input-bg: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121214;
+            --border-color: #38383c;
+            --card-bg: #1a1a1f;
+            --text-color: #e5e5ea;
+            --input-bg: #242429;
+            --main-accent: #ff5252;
+        }
+
+        [data-theme="dark"] .form-text {
+            color: #8e8e93;
+        }
+
+        [data-theme="dark"] .btn-primary {
+            background-color: var(--main-accent);
+            color: #ffffff;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .btn-primary:hover {
+            background-color: #e04040;
+            color: #ffffff;
+        }
+
+        [data-theme="dark"] .btn-secondary {
+            background-color: #ff9800; /* Softer Orange */
+            color: #ffffff;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .btn-secondary:hover {
+            background-color: #f57c00;
+            color: #ffffff;
+        }
+
+        [data-theme="dark"] .btn-warning {
+            background-color: #ffb74d; /* Softer Gold */
+            color: #121214;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .btn-warning:hover {
+            background-color: #ffa726;
+            color: #121214;
+        }
+
+        [data-theme="dark"] .btn-danger {
+            background-color: #ff5252; /* Soft Coral Red */
+            color: #ffffff;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .btn-danger:hover {
+            background-color: #e04040;
+            color: #ffffff;
+        }
+
+        [data-theme="dark"] #btn-reader {
+            background-color: #4db6ac !important; /* Sage Teal Green */
+            color: #121214 !important;
+            border-color: var(--border-color) !important;
+        }
+
+        [data-theme="dark"] #btn-reader:hover {
+            background-color: #80cbc4 !important;
+            color: #121214 !important;
+        }
+
+        [data-theme="dark"] #progress-bar {
+            background-color: var(--input-bg);
+        }
+
+        [data-theme="dark"] .alert-info {
+            background-color: #1a2b3c;
+            color: #80deea;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .alert-primary {
+            background-color: #2b2210;
+            color: #ffe082;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .alert-success {
+            background-color: #132c1c;
+            color: #a5d6a7;
+            border-color: var(--border-color);
+        }
+
+        [data-theme="dark"] .alert-danger {
+            background-color: #3c1b1b;
+            color: #ff8a80;
+            border-color: var(--border-color);
+        }
+
+        body {
+            /* 噪点纹理背景 */
+            background-color: var(--bg-color);
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            /* 粗野主义常用等宽或硬朗字体 */
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            margin: 0;
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* 不对称标题 */
+        .page-header {
+            margin-bottom: 3rem;
+            border-bottom: 4px solid var(--border-color);
+            padding-bottom: 1rem;
+            display: inline-block;
+            transform: rotate(-1deg);
+        }
+
+        h1 {
+            font-weight: 900;
+            font-size: 3rem;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            font-weight: bold;
+            background: var(--main-accent);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            display: inline-block;
+            transform: rotate(2deg);
+            margin-top: 0.5rem;
+        }
+
+        /* 粗野主义卡片 */
+        .brutal-card {
+            background-color: var(--card-bg);
+            border: 4px solid var(--border-color);
+            border-radius: 0;
+            /* 放弃圆角 */
+            padding: 2rem;
+            box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);
+            margin-bottom: 2rem;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .brutal-card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: calc(var(--shadow-offset) + 2px) calc(var(--shadow-offset) + 2px) 0 var(--border-color);
+        }
+
+        /* 表单控件定制 */
+        .form-label {
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .form-control,
+        .form-select {
+            border: 3px solid var(--border-color);
+            border-radius: 0;
+            padding: 0.8rem;
+            font-size: 1rem;
+            font-family: inherit;
+            background: var(--input-bg);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            outline: none;
+            box-shadow: 4px 4px 0 var(--main-accent);
+            border-color: var(--border-color);
+        }
+
+        .form-control:disabled,
+        .form-select:disabled {
+            background-color: var(--input-bg) !important;
+            color: var(--text-color) !important;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .form-text {
+            font-family: inherit;
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            font-weight: bold;
+        }
+
+        /* 按钮重置 */
+        .btn {
+            border: 3px solid var(--border-color);
+            border-radius: 0;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 0.8rem 1.5rem;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 4px 4px 0 var(--border-color);
+            transition: all 0.1s;
+        }
+
+        .btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--border-color);
+        }
+
+        .btn-primary {
+            background-color: var(--main-accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #ff3333;
+            color: white;
+            border-color: var(--border-color);
+            /* 覆盖默认 */
+        }
+
+        .btn-secondary {
+            background-color: #ffd700;
+            color: var(--text-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #ffcc00;
+            color: var(--text-color);
+            border-color: var(--border-color);
+        }
+
+        .btn-warning {
+            background-color: #ffd700;
+            color: #1a1a1a;
+        }
+
+        .btn-warning:hover {
+            background-color: #ffcc00;
+            color: #1a1a1a;
+            border-color: var(--border-color);
+        }
+
+        .btn-danger {
+            background-color: #ef9a9a;
+            color: #1a1a1a;
+        }
+
+        .btn-danger:hover {
+            background-color: #e57373;
+            color: #1a1a1a;
+            border-color: var(--border-color);
+        }
+
+        /* 状态与进度条 */
+        #progress-bar {
+            height: 1.5rem;
+            border: 3px solid var(--border-color);
+            border-radius: 0;
+            background-color: #fff;
+            margin-top: 2rem;
+            box-shadow: 4px 4px 0 var(--border-color);
+            display: none;
+        }
+
+        .progress-bar {
+            background-color: var(--main-accent);
+            transition: width 0.1s linear;
+            /* 取消平滑过渡，让它更硬朗 */
+        }
+
+        .status-message {
+            margin-top: 2rem;
+            border: 3px solid var(--border-color);
+            border-radius: 0;
+            padding: 1rem;
+            font-weight: bold;
+            box-shadow: 4px 4px 0 var(--border-color);
+            display: none;
+        }
+
+        .alert-info {
+            background-color: #e0f7fa;
+            color: inherit;
+        }
+
+        .alert-primary {
+            background-color: #ffd700;
+            color: inherit;
+        }
+
+        .alert-success {
+            background-color: #a5d6a7;
+            color: inherit;
+        }
+
+        .alert-danger {
+            background-color: #ef9a9a;
+            color: inherit;
+        }
+
+        /* 结果区域 */
+        .result-container {
+            margin-top: 3rem;
+            display: none;
+        }
+
+        .result-header {
+            font-size: 2rem;
+            font-weight: 900;
+            border-bottom: 4px solid var(--border-color);
+            margin-bottom: 1.5rem;
+            display: inline-block;
+        }
+
+        .list-group-item {
+            border: 3px solid var(--border-color);
+            border-radius: 0 !important;
+            margin-bottom: 1rem;
+            box-shadow: 3px 3px 0 var(--border-color);
+            font-weight: bold;
+        }
+
+        /* 代码块 */
+        pre {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 1rem;
+            border: 3px solid var(--border-color);
+            box-shadow: 4px 4px 0 var(--border-color);
+            border-radius: 0;
+            font-size: 0.9rem;
+        }
+
+        /* 模态框重置 */
+        .modal-content {
+            border: 4px solid var(--border-color);
+            border-radius: 0;
+            box-shadow: 8px 8px 0 var(--border-color);
+            background: var(--bg-color);
+        }
+
+        .modal-header {
+            border-bottom: 4px solid var(--border-color);
+            background: var(--main-accent);
+            color: white;
+            border-radius: 0;
+        }
+
+        .modal-title {
+            font-weight: 900;
+            font-size: 1.5rem;
+        }
+
+        .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
+        }
+
+        .modal-footer {
+            border-top: 4px solid var(--border-color);
+        }
+
+        .article-content {
+            background: #fff;
+            border: 3px solid var(--border-color);
+            padding: 2rem;
+            font-family: inherit;
+            line-height: 1.8;
+            max-height: 60vh;
+            overflow-y: auto;
+            box-shadow: inset 4px 4px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .brutal-card {
+                padding: 1.5rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .btn {
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="d-flex justify-content-end gap-2 mb-3">
+            <button type="button" class="btn" id="theme-toggle" onclick="toggleTheme()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color);" title="切换主题">
+                <iconify-icon icon="ph:sun-bold" id="theme-icon" style="font-size: 1.2rem; display: flex; align-items: center;"></iconify-icon>
+            </button>
+            <button type="button" class="btn btn-danger" id="shutdown-btn" onclick="shutdownServer()" style="width: auto; padding: 0.4rem 0.8rem; box-shadow: 3px 3px 0 var(--border-color);" title="关闭服务器 (Ctrl+Shift+Q)">
+                <iconify-icon icon="ph:power-bold" id="shutdown-icon" style="font-size: 1.2rem; display: flex; align-items: center;"></iconify-icon>
+            </button>
+        </div>
+
+        <header class="page-header">
+            <h1>文章抓取机器</h1>
+            <div class="subtitle">干掉无聊的复制粘贴！</div>
+        </header>
+
+        <div class="brutal-card">
+            <form id="crawl-form">
+                <div class="form-group mb-4">
+                    <label for="url" class="form-label">
+                        <iconify-icon icon="ph:link-bold"></iconify-icon> 扔个链接进来
+                    </label>
+                    <input type="url" class="form-control" id="url" name="url" placeholder="https://..." required>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="format" class="form-label">
+                                <iconify-icon icon="ph:file-text-bold"></iconify-icon> 想要啥格式？
+                            </label>
+                            <select class="form-select" id="format" name="format">
+                                <option value="txt">纯文本 (TXT)</option>
+                                <option value="md">Markdown (MD)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="next_chapters" class="form-label">
+                                <iconify-icon icon="ph:arrow-fat-right-bold"></iconify-icon> 往后扒几章？
+                            </label>
+                            <input type="number" class="form-control" id="next_chapters" name="next_chapters" min="0"
+                                value="0">
+                            <div class="form-text">写0就只跑当前这页。</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <label for="prev_chapters" class="form-label">
+                                <iconify-icon icon="ph:arrow-fat-left-bold"></iconify-icon> 往前翻几章？
+                            </label>
+                            <input type="number" class="form-control" id="prev_chapters" name="prev_chapters" min="0"
+                                value="0">
+                            <div class="form-text">同上，别太贪心。</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-4">
+                    <label for="output_dir" class="form-label">
+                        <iconify-icon icon="ph:folder-open-bold"></iconify-icon> 存哪儿？
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="output_dir" name="output_dir" value="~/Downloads/文章爬取" readonly placeholder="点击右侧按钮选择保存目录">
+                        <button type="button" class="btn btn-secondary" id="btn-select-folder" style="font-weight: bold;">
+                            <iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选择文件夹
+                        </button>
+                    </div>
+                    <div class="form-text">已开启图形选框与自动记忆，选定后更新软件也不会丢失文章。</div>
+                </div>
+
+                <div class="d-flex flex-column flex-md-row gap-3 mt-5" style="flex-wrap: wrap;">
+                    <button type="submit" class="btn btn-primary flex-grow-1" style="flex-basis: 45%;">
+                        <iconify-icon icon="ph:rocket-launch-bold"></iconify-icon> 开搞！
+                    </button>
+                    <button type="button" class="btn btn-warning flex-grow-1" id="btn-online"
+                        style="flex-basis: 45%; font-weight: bold;">
+                        <iconify-icon icon="ph:book-open-text-bold"></iconify-icon> 在线阅读
+                    </button>
+                    <a href="/read_online" class="btn flex-grow-1" id="btn-reader" style="background-color: #a5d6a7; color: #1a1a1a; flex-basis: 45%; text-decoration: none;">
+                        <iconify-icon icon="ph:book-open-bold"></iconify-icon> 进入阅读器
+                    </a>
+                    <a href="/history" class="btn btn-secondary flex-grow-1" style="flex-basis: 45%;">
+                        <iconify-icon icon="ph:clock-counter-clockwise-bold"></iconify-icon> 翻翻旧账
+                    </a>
+                </div>
+                <!-- 继续上次阅读 -->
+                <div id="resume-reading-row" class="mt-3" style="display:none;">
+                    <a id="resume-reading-btn" href="#" class="btn btn-success w-100"
+                        style="font-weight:900;font-size:1rem;border:4px solid #1a1a1a;box-shadow:6px 6px 0 #1a1a1a;">
+                        <iconify-icon icon="ph:bookmark-simple-bold"></iconify-icon> 继续上次阅读
+                    </a>
+                </div>
+            </form>
+
+            <div class="progress" id="progress-bar">
+                <div id="progress-bar-fill" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                    aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%; color: #1a1a1a; font-weight: bold; text-align: center; line-height: 1.5rem;">0%</div>
+            </div>
+
+            <div class="status-message" id="status-message"></div>
+
+            <!-- 任务控制按钮 -->
+            <div id="task-control-buttons" style="display: none; margin-top: 1.5rem;" class="d-flex gap-3 mb-3">
+                <button type="button" id="btn-pause-resume" class="btn btn-warning flex-grow-1" style="font-weight: bold; border: 3px solid var(--border-color); box-shadow: 4px 4px 0 var(--border-color);">
+                    <iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停
+                </button>
+                <button type="button" id="btn-stop" class="btn btn-danger flex-grow-1" style="font-weight: bold; border: 3px solid var(--border-color); box-shadow: 4px 4px 0 var(--border-color);">
+                    <iconify-icon icon="ph:stop-bold"></iconify-icon> 停止
+                </button>
+            </div>
+
+        </div>
+
+        <div class="result-container" id="result-container">
+            <h3 class="result-header">
+                <iconify-icon icon="ph:check-fat-fill"></iconify-icon> 搞定了！
+            </h3>
+            <div id="result-content"></div>
+            <a href="/" class="btn btn-primary mt-4">
+                <iconify-icon icon="ph:house-bold"></iconify-icon> 再来一发
+            </a>
+        </div>
+
+    </div>
+
+    <!-- 模态框 -->
+    <div class="modal fade" id="viewArticleModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><iconify-icon icon="ph:book-open-text-bold"></iconify-icon> 预览</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 id="viewFilename" class="mb-3 fw-bold"></h6>
+                    <div id="viewContent" class="article-content"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <iconify-icon icon="ph:x-bold"></iconify-icon> 撤
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let activeTaskId = null;
+        let pollTimeout = null;
+
+        function lockUI(taskId) {
+            document.getElementById('url').disabled = true;
+            document.getElementById('format').disabled = true;
+            document.getElementById('output_dir').disabled = true;
+            document.getElementById('next_chapters').disabled = true;
+            document.getElementById('prev_chapters').disabled = true;
+            const selectBtn = document.getElementById('btn-select-folder');
+            if (selectBtn) selectBtn.disabled = true;
+            const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+            if (taskId) {
+                try { localStorage.setItem('active_crawler_task_id', taskId); } catch(e){}
+            }
+        }
+
+        function unlockUI() {
+            document.getElementById('url').disabled = false;
+            document.getElementById('format').disabled = false;
+            document.getElementById('output_dir').disabled = false;
+            document.getElementById('next_chapters').disabled = false;
+            document.getElementById('prev_chapters').disabled = false;
+            const selectBtn = document.getElementById('btn-select-folder');
+            if (selectBtn) selectBtn.disabled = false;
+            const submitBtn = document.querySelector('#crawl-form button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = false;
+            document.getElementById('task-control-buttons').style.display = 'none';
+            try { localStorage.removeItem('active_crawler_task_id'); } catch(e){}
+        }
+
+        // 载入保存的存储位置
+        (function loadSavedConfig() {
+            try {
+                const localDir = localStorage.getItem('saved_output_dir');
+                if (localDir) {
+                    document.getElementById('output_dir').value = localDir;
+                }
+            } catch(e){}
+            fetch('/api/config')
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success && d.config && d.config.output_dir) {
+                        document.getElementById('output_dir').value = d.config.output_dir;
+                        try { localStorage.setItem('saved_output_dir', d.config.output_dir); } catch(e){}
+                    }
+                }).catch(function(){});
+        })();
+
+        // 页面初始化脚本载入时第一时间同步锁定，防止刷新时的解锁空隙
+        (function initLockState() {
+            try {
+                const savedTid = localStorage.getItem('active_crawler_task_id');
+                if (savedTid) {
+                    lockUI(savedTid);
+                    activeTaskId = savedTid;
+                }
+            } catch(e){}
+        })();
+
+        // 图形化文件夹选择按钮点击处理
+        document.getElementById('btn-select-folder').addEventListener('click', function () {
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 正在选择...';
+
+            fetch('/api/select_folder', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选择文件夹';
+                    if (data.success && data.path) {
+                        document.getElementById('output_dir').value = data.path;
+                        try { localStorage.setItem('saved_output_dir', data.path); } catch(e){}
+                    } else if (!data.canceled && data.error) {
+                        alert(data.error || '选择目录失败');
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<iconify-icon icon="ph:folder-user-bold"></iconify-icon> 选择文件夹';
+                    alert('网络出错: ' + err.message);
+                });
+        });
+
+        document.getElementById('crawl-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = {
+                url: document.getElementById('url').value,
+                format: document.getElementById('format').value,
+                output_dir: document.getElementById('output_dir').value,
+                next_chapters: parseInt(document.getElementById('next_chapters').value),
+                prev_chapters: parseInt(document.getElementById('prev_chapters').value)
+            };
+
+            const progressBar = document.getElementById('progress-bar');
+            const fill = document.getElementById('progress-bar-fill');
+            const statusMessage = document.getElementById('status-message');
+            const resultContainer = document.getElementById('result-container');
+
+            lockUI();
+            if (fill) {
+                fill.style.width = '0%';
+                fill.innerText = '0%';
+            }
+            progressBar.style.display = 'block';
+            statusMessage.className = 'status-message alert-info';
+            statusMessage.innerHTML = '<iconify-icon icon="ph:spinner-bold" class="rotate-icon" style="animation: spin 1s linear infinite;"></iconify-icon> 机器轰鸣中，稍等...';
+            statusMessage.style.display = 'block';
+            resultContainer.style.display = 'none';
+
+            // 重置暂停/停止按钮状态
+            const prBtn = document.getElementById('btn-pause-resume');
+            prBtn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+            prBtn.className = 'btn btn-warning flex-grow-1';
+            document.getElementById('task-control-buttons').style.display = 'flex';
+
+            fetch('/api/crawl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.active_task_id) {
+                        const tid = data.active_task_id;
+                        activeTaskId = tid;
+                        lockUI(tid);
+                        statusMessage.className = 'status-message alert-warning';
+                        statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> ${data.error || '已有任务在狂奔中'}`;
+                        pollTaskStatus(tid);
+                        return;
+                    }
+                    if (data.error) {
+                        statusMessage.className = 'status-message alert-danger';
+                        statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: ${data.error}`;
+                        progressBar.style.display = 'none';
+                        unlockUI();
+                        return;
+                    }
+
+                    const taskId = data.task_ids && data.task_ids.length > 0 ? data.task_ids[0] : null;
+
+                    if (!taskId) {
+                        statusMessage.className = 'status-message alert-danger';
+                        statusMessage.innerHTML = `<iconify-icon icon="ph:warning-circle-bold"></iconify-icon> 翻车了: 未获取到任务 ID`;
+                        progressBar.style.display = 'none';
+                        unlockUI();
+                        return;
+                    }
+
+                    activeTaskId = taskId;
+                    lockUI(taskId);
+                    statusMessage.innerHTML = `<iconify-icon icon="ph:engine-bold"></iconify-icon> 任务编号: ${taskId}，正在狂奔...`;
+                    pollTaskStatus(taskId);
+                })
+                .catch(error => {
+                    statusMessage.className = 'status-message alert-danger';
+                    statusMessage.innerHTML = `<iconify-icon icon="ph:wifi-slash-bold"></iconify-icon> 网络断了: ${error.message}`;
+                    progressBar.style.display = 'none';
+                    unlockUI();
+                });
+        });
+
+        function pollTaskStatus(taskId) {
+            const progressBar = document.getElementById('progress-bar');
+            const fill = document.getElementById('progress-bar-fill');
+            const statusMessage = document.getElementById('status-message');
+            const resultContainer = document.getElementById('result-container');
+            const resultContent = document.getElementById('result-content');
+            const controls = document.getElementById('task-control-buttons');
+
+            fetch(`/api/task/${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        statusMessage.className = 'status-message alert-danger';
+                        statusMessage.innerHTML = `<span class="fw-bold">爆炸了:</span> ${data.error}`;
+                        progressBar.style.display = 'none';
+                        unlockUI();
+                        return;
+                    }
+
+                    const task = data.task || data;
+                    activeTaskId = task.id;
+
+                    const pct = task.progress || 0;
+                    const completed = task.completed_chapters || 0;
+                    const total = task.total_chapters || 0;
+
+                    if (fill) {
+                        fill.style.width = pct + '%';
+                        fill.innerText = pct + '%';
+                    }
+
+                    let statusText = '';
+                    let statusClass = '';
+
+                    const prBtn = document.getElementById('btn-pause-resume');
+
+                    switch (task.status) {
+                        case 'pending':
+                            statusText = '还在排队呢...';
+                            statusClass = 'alert-info';
+                            lockUI();
+                            controls.style.display = 'flex';
+                            break;
+                        case 'running':
+                            statusText = `正在疯狂薅羊毛... (${completed}/${total}) [${pct}%]${task.current_chapter_title ? '<br>当前已爬: ' + task.current_chapter_title : ''}`;
+                            statusClass = 'alert-primary';
+                            lockUI();
+                            controls.style.display = 'flex';
+                            prBtn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+                            prBtn.className = 'btn btn-warning flex-grow-1';
+                            break;
+                        case 'paused':
+                            statusText = `任务已暂停。已下载 ${completed}/${total} 章 [${pct}%]${task.current_chapter_title ? '<br>当前停留: ' + task.current_chapter_title : ''}`;
+                            statusClass = 'alert-warning';
+                            lockUI();
+                            controls.style.display = 'flex';
+                            prBtn.innerHTML = '<iconify-icon icon="ph:play-bold"></iconify-icon> 继续';
+                            prBtn.className = 'btn btn-success flex-grow-1';
+                            break;
+                        case 'completed':
+                            statusText = '大功告成！全扒下来了。';
+                            statusClass = 'alert-success';
+                            unlockUI();
+
+                            let resultHtml = `
+                            <div class="brutal-card p-3 mb-4">
+                                <h4>战报清单</h4>
+                                <ul style="list-style: square;">
+                                    <li><strong>任务ID:</strong> ${task.id}</li>
+                                    <li><strong>URL:</strong> <a href="${task.url}" target="_blank">${task.url}</a></li>
+                                    <li><strong>向前:</strong> ${task.prev_chapters} | <strong>向后:</strong> ${task.next_chapters}</li>
+                                    <li><strong>战利品数量:</strong> ${task.file_count} 个文件</li>
+                                </ul>
+                            </div>
+                        `;
+
+                            if (task.output_files && task.output_files.length > 0) {
+                                resultHtml += `<div class="mt-4"><h5 class="fw-bold">文件打包带走：</h5><ul class="list-group">`;
+                                task.output_files.forEach(file => {
+                                    resultHtml += `
+                                    <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <span class="text-break">${file}</span>
+                                        <div class="d-flex gap-2">
+                                            <a href="/download/${task.output_dir}/${file}" class="btn btn-sm" style="padding: 0.2rem 0.6rem; font-size: 0.9rem;">
+                                                <iconify-icon icon="ph:download-simple-bold"></iconify-icon> 下载
+                                            </a>
+                                            <button class="btn btn-sm btn-secondary" style="padding: 0.2rem 0.6rem; font-size: 0.9rem;" onclick="viewArticle('${task.output_dir}/${file}')">
+                                                <iconify-icon icon="ph:book-open-bold"></iconify-icon> 阅读
+                                            </button>
+                                        </div>
+                                    </li>
+                                `;
+                                });
+                                resultHtml += `</ul></div>`;
+                            }
+
+                            resultContent.innerHTML = resultHtml;
+                            resultContainer.style.display = 'block';
+                            progressBar.style.display = 'none';
+                            activeTaskId = null;
+                            return;
+                        case 'failed':
+                            statusText = '抱歉，挂了！可能网站反扒了。';
+                            statusClass = 'alert-danger';
+                            unlockUI();
+
+                            resultContent.innerHTML = `
+                            <div class="brutal-card p-3" style="border-color: #ff4d4d;">
+                                <h4>错误信息：</h4>
+                                <p>${task.error || '未知错误'}</p>
+                            </div>
+                        `;
+                            resultContainer.style.display = 'block';
+                            progressBar.style.display = 'none';
+                            activeTaskId = null;
+                            return;
+                        case 'stopped':
+                            statusText = '任务已手动终止。';
+                            statusClass = 'alert-secondary';
+                            unlockUI();
+
+                            resultContent.innerHTML = `
+                            <div class="brutal-card p-3" style="border-color: var(--border-color);">
+                                <h4>下载历史被停止：</h4>
+                                <p>${task.error_msg || '任务已被用户停止。'}</p>
+                            </div>
+                        `;
+                            resultContainer.style.display = 'block';
+                            progressBar.style.display = 'none';
+                            activeTaskId = null;
+                            return;
+                    }
+
+                    statusMessage.className = `status-message ${statusClass}`;
+                    statusMessage.innerHTML = `<span class="fw-bold me-2">></span> ${statusText}`;
+
+                    if (pollTimeout) clearTimeout(pollTimeout);
+                    pollTimeout = setTimeout(() => pollTaskStatus(taskId), 1000);
+                })
+                .catch(error => {
+                    statusMessage.className = 'status-message alert-danger';
+                    statusMessage.innerHTML = `断连: ${error.message}`;
+                    progressBar.style.display = 'none';
+                    unlockUI();
+                });
+        }
+
+        document.getElementById('btn-pause-resume').addEventListener('click', function() {
+            if (!activeTaskId) return;
+            const btn = this;
+            const isPause = btn.innerText.includes('暂停');
+            const action = isPause ? 'pause' : 'resume';
+            
+            btn.disabled = true;
+            fetch(`/api/task/${activeTaskId}/${action}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (data.success) {
+                        if (isPause) {
+                            btn.innerHTML = '<iconify-icon icon="ph:play-bold"></iconify-icon> 继续';
+                            btn.className = 'btn btn-success flex-grow-1';
+                        } else {
+                            btn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+                            btn.className = 'btn btn-warning flex-grow-1';
+                        }
+                    } else {
+                        alert(data.error || '操作失败');
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    alert('网络出错: ' + err.message);
+                });
+        });
+
+        document.getElementById('btn-stop').addEventListener('click', function() {
+            if (!activeTaskId) return;
+            if (!confirm('确定要停止当前下载任务吗？')) return;
+            
+            const btn = this;
+            btn.disabled = true;
+            fetch(`/api/task/${activeTaskId}/stop`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    btn.disabled = false;
+                    if (!data.success) {
+                        alert(data.error || '停止失败');
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    alert('网络出错: ' + err.message);
+                });
+        });
+
+        // 页面加载时恢复之前的锁定状态（防止刷新解除锁定）
+        window.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/tasks')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.tasks) {
+                        for (const tid in data.tasks) {
+                            const t = data.tasks[tid];
+                            if (t.status === 'running' || t.status === 'paused' || t.status === 'pending') {
+                                activeTaskId = tid;
+                                lockUI();
+                                document.getElementById('progress-bar').style.display = 'block';
+                                document.getElementById('task-control-buttons').style.display = 'flex';
+                                const statusMessage = document.getElementById('status-message');
+                                statusMessage.style.display = 'block';
+                                statusMessage.className = 'status-message alert-info';
+                                statusMessage.innerHTML = '正在同步爬取状态中...';
+                                
+                                const prBtn = document.getElementById('btn-pause-resume');
+                                if (t.status === 'paused') {
+                                    prBtn.innerHTML = '<iconify-icon icon="ph:play-bold"></iconify-icon> 继续';
+                                    prBtn.className = 'btn btn-success flex-grow-1';
+                                } else {
+                                    prBtn.innerHTML = '<iconify-icon icon="ph:pause-bold"></iconify-icon> 暂停';
+                                    prBtn.className = 'btn btn-warning flex-grow-1';
+                                }
+                                
+                                pollTaskStatus(tid);
+                                break;
+                            }
+                        }
+                    }
+                })
+                .catch(err => console.error("恢复任务状态失败:", err));
+        });
+
+        function viewArticle(filename) {
+            window.location.href = `/article/${filename}`;
+        }
+
+        // --- 继续上次阅读 ---
+        (function () {
+            try {
+                const lastChapter = localStorage.getItem('last-read-chapter');
+                if (lastChapter) {
+                    const row = document.getElementById('resume-reading-row');
+                    const btn = document.getElementById('resume-reading-btn');
+                    row.style.display = 'block';
+                    if (lastChapter.startsWith('ONLINE:')) {
+                        btn.href = '/read_online?url=' + encodeURIComponent(lastChapter.substring(7));
+                    } else {
+                        // 去掉开头的 / 防止 /article//Users/... 双斜杠
+                        const cleanPath = lastChapter.startsWith('/') ? lastChapter.substring(1) : lastChapter;
+                        btn.href = '/article/' + cleanPath;
+                    }
+                }
+            } catch (e) { }
+        })();
+
+        // --- 在线阅读按钮功能 ---
+        document.getElementById('btn-online').addEventListener('click', function () {
+            const urlInput = document.getElementById('url').value.trim();
+            if (!urlInput) {
+                alert('请先输入你要在线阅读的网页链接！');
+                document.getElementById('url').focus();
+                return;
+            }
+            // 直接跳转 to 在线阅读器
+            window.location.href = '/read_online?url=' + encodeURIComponent(urlInput);
+        });
+
+        // --- 主页深色模式切换 ---
+        window.toggleTheme = function () {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('home-theme', newTheme);
+            
+            // 同步到 reader-prefs
+            try {
+                const s = localStorage.getItem('reader-prefs');
+                let prefs = s ? JSON.parse(s) : {};
+                prefs.theme = newTheme;
+                localStorage.setItem('reader-prefs', JSON.stringify(prefs));
+            } catch (e) {}
+            
+            updateThemeIcon(newTheme);
+        };
+
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('theme-icon');
+            if (!icon) return;
+            if (theme === 'dark') {
+                icon.setAttribute('icon', 'ph:moon-bold');
+            } else {
+                icon.setAttribute('icon', 'ph:sun-bold');
+            }
+        }
+
+        // 页面加载时自动应用保存的主题
+        (function() {
+            let savedTheme = 'light';
+            try {
+                const s = localStorage.getItem('reader-prefs');
+                if (s) {
+                    const prefs = JSON.parse(s);
+                    if (prefs && prefs.theme) {
+                        savedTheme = prefs.theme;
+                    }
+                }
+            } catch (e) {}
+            
+            // 兼容旧的 home-theme
+            if (savedTheme === 'light') {
+                savedTheme = localStorage.getItem('home-theme') || 'light';
+            }
+            
+            // 如果是夜幕 (dark) 或者纯黑 (pure-black)，我们都认为是 dark
+            if (savedTheme === 'dark' || savedTheme === 'pure-black') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.addEventListener('DOMContentLoaded', () => {
+                    updateThemeIcon('dark');
+                });
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                document.addEventListener('DOMContentLoaded', () => {
+                    updateThemeIcon('light');
+                });
+            }
+        })();
+
+        // --- 关闭服务器 ---
+        window.shutdownServer = function () {
+            if (!confirm('真要关掉后端吗？\n关了这网页就废了。')) {
+                return;
+            }
+            fetch('/api/shutdown', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.body.innerHTML = `
+                            <div class="container" style="max-width: 600px; margin-top: 15vh;">
+                                <div class="brutal-card" style="text-align: center; border: 4px solid var(--border-color); background-color: var(--card-bg); padding: 3rem; box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);">
+                                    <h1 style="color: var(--main-accent); font-size: 4rem; margin-bottom: 1.5rem; display: flex; justify-content: center; align-items: center;">
+                                        <iconify-icon icon="ph:power-bold"></iconify-icon>
+                                    </h1>
+                                    <h2 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 1.5rem;">成功毁灭世界！</h2>
+                                    <p style="margin: 1rem 0; font-size: 1.2rem; font-weight: bold; color: var(--text-color);">后端服务已经被搞死了。</p>
+                                    <p style="font-size: 1.2rem; font-weight: bold; color: var(--text-color);">现在可以关闭浏览器了。</p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        alert('竟然关不掉它：' + data.error);
+                    }
+                })
+                .catch(err => {
+                    // 由于服务器瞬间死掉，连接断开也表明成功关闭了
+                    document.body.innerHTML = `
+                        <div class="container" style="max-width: 600px; margin-top: 15vh;">
+                            <div class="brutal-card" style="text-align: center; border: 4px solid var(--border-color); background-color: var(--card-bg); padding: 3rem; box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--border-color);">
+                                <h1 style="color: var(--main-accent); font-size: 4rem; margin-bottom: 1.5rem; display: flex; justify-content: center; align-items: center;">
+                                    <iconify-icon icon="ph:power-bold"></iconify-icon>
+                                </h1>
+                                <h2 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 1.5rem;">成功毁灭世界！</h2>
+                                <p style="margin: 1rem 0; font-size: 1.2rem; font-weight: bold; color: var(--text-color);">后端服务已经被搞死了。</p>
+                                <p style="font-size: 1.2rem; font-weight: bold; color: var(--text-color);">现在可以关闭浏览器了。</p>
+                            </div>
+                        </div>
+                    `;
+                });
+        };
+
+        // 全局关闭服务器键盘快捷键 (Ctrl+Shift+Q)
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey || e.altKey) && e.shiftKey && (e.key === 'q' || e.key === 'Q')) {
+                e.preventDefault();
+                shutdownServer();
+            }
+        });
+
+        // 当链接改变时自动请求探测书名并更新保存目录
+        let lastUrlProbed = '';
+        document.getElementById('url').addEventListener('input', function (e) {
+            const urlVal = e.target.value.trim();
+            if (urlVal.startsWith('http') && urlVal !== lastUrlProbed) {
+                lastUrlProbed = urlVal;
+                fetch('/api/probe_book_title?url=' + encodeURIComponent(urlVal))
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.book_title && data.book_title !== '未知书籍') {
+                            const outputDirInput = document.getElementById('output_dir');
+                            if (outputDirInput.value === './articles' || outputDirInput.value === './output' || !outputDirInput.value) {
+                                outputDirInput.value = './articles/' + data.book_title;
+                            }
+                        }
+                    })
+                    .catch(err => console.log('探测书名失败:', err));
+            }
+        });
+    </script>
+</body>
+
+</html>

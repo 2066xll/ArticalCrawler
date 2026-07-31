@@ -218,16 +218,21 @@ def clean_article_text(content, url=""):
     if not content:
         return ""
     
-    # 移除 bqgns / 笔趣阁注入的独立 "go" 水印（含紧挨中文的情况）
+    # 移除 bqgns / 笔趣阁注入的独立 "go" 水印及末尾/独立 "over"
     content = re.sub(r'(?i)\bgo\b|go(?=[\u4e00-\u9fff])|(?<=[\u4e00-\u9fff])go', '', content)
+    content = re.sub(r'(?i)\b(over)\b', '', content)
     
     # 常见小说网站的水印、广告段落与提示词
     noise_patterns = [
         r'笔\s*趣\s*阁\s*(?:www\.[a-z0-9\.\-]+\.[a-z]+)?',
         r'https?://[a-zA-Z0-9\./\-_]+',
         r'www\.[a-zA-Z0-9\./\-_]+',
+        r'bqgns\.com',
         r'（?\s*本章未完[，,]\s*请?点击下一页继续阅读\s*）?',
         r'（?\s*本章未完[，,]\s*翻页继续阅读\s*）?',
+        r'（?\s*本章未完.*?\s*）?',
+        r'（?\s*本章完\s*）?',
+        r'（?\s*全书完\s*）?',
         r'【\s*如遇缺章[、,]\s*乱序.*?\s*】',
         r'请安装最新版爱阅小说app.*',
         r'点击下一页继续阅读.*',
@@ -235,6 +240,9 @@ def clean_article_text(content, url=""):
         r'加入书签.*',
         r'投票推荐.*',
         r'手机用户请到.*阅读.*',
+        r'网页版章节内容慢.*',
+        r'章节错误.*?举报',
+        r'^\s*(?:over|完|本章完|全书完|上一章|下一章|目录|书页|首页|返回目录|快捷键|背景颜色|字体大小)\s*$',
     ]
     
     lines = content.split('\n')
@@ -243,11 +251,13 @@ def clean_article_text(content, url=""):
         l = line.strip()
         if not l:
             continue
+        if l.lower() in ('over', '完', '本章完', '全书完', '上一章', '下一章', '目录', '书页', '首页'):
+            continue
         skip = False
         for pat in noise_patterns:
             if re.search(pat, l, re.IGNORECASE):
                 l = re.sub(pat, '', l, flags=re.IGNORECASE).strip()
-                if not l or len(l) < 5:
+                if not l or len(l) < 2:
                     skip = True
                     break
         if not skip and l:
@@ -988,21 +998,23 @@ def get_toc_chapters(start_url, direction, count, initial_html=None):
                 if not text or len(text) > 80:
                     continue
                     
-                if re.search(r'首页|书架|书页|登录|注册|书库|作者|排行|加入书签|返回|目录', text):
+                if re.search(r'首页|书架|书页|登录|注册|书库|作者|排行|加入书签|返回|目录|开始阅读|继续阅读|最新章节|直达底部|推荐本书|全本|完结|TXT下载|epub下载|pdf下载|倒序|正序', text):
                     continue
                     
                 all_links.append((abs_url, text))
                 
-            # 极速提前退出机制：在正向爬取时，若已找到起点且收集到的后序章节数已足够，无需继续抓取剩余所有目录分页
+            # 极速提前退出机制：在正向爬取时，若已找到起点且收集到的后序有效章节数已足够，无需继续抓取剩余所有目录分页
             if direction == 'next' and count > 0:
                 idx_in_all = -1
-                for i, (u, _) in enumerate(all_links):
+                for i, (u, t) in enumerate(all_links):
                     if u == start_url or urlparse(u).path == urlparse(start_url).path:
                         idx_in_all = i
                         break
-                if idx_in_all != -1 and (len(all_links) - idx_in_all) >= (count + 5):
-                    logger.info(f"目录已包含起点 URL 且后续章节数量足够 ({len(all_links) - idx_in_all} >= {count + 5})，触发极速提前退出")
-                    break
+                if idx_in_all != -1:
+                    unique_subsequent = len(set(u for u, _ in all_links[idx_in_all:] if u.rstrip('/').split('/')[-1].isdigit() or u.endswith(('.html', '.htm'))))
+                    if unique_subsequent >= (count + 5):
+                        logger.info(f"目录已包含起点 URL 且后续有效章节数量足够 ({unique_subsequent} >= {count + 5})，触发极速提前退出")
+                        break
 
             # 寻找“下一页”的目录分页链接
             next_toc_url = None
@@ -1023,28 +1035,46 @@ def get_toc_chapters(start_url, direction, count, initial_html=None):
         
         start_path_parts = parsed_toc.path.strip('/').split('/')
         
+        # 1. 优先按 URL 分组提取最优质标题
+        url_best_title = {}
+        for url, title in all_links:
+            # 检查标题是否具备显式章节特征
+            has_ch_pattern = bool(re.search(r'第.*?章|第.*?节|第.*?回|第.*?卷|第.*?折|引子|序章|楔子|前言|后记|番外', title) or 
+                                 re.match(r'^[\d一二三四五六七八九十百千万两零]+[、\.\s_]', title.strip()) or 
+                                 extract_chapter_number(title) is not None)
+            
+            if url not in url_best_title:
+                url_best_title[url] = (title, has_ch_pattern)
+            else:
+                old_t, old_has = url_best_title[url]
+                if not old_has and has_ch_pattern:
+                    url_best_title[url] = (title, True)
+
         for url, title in all_links:
             if url in seen_urls:
                 continue
                 
-            is_chapter = False
+            best_title, has_ch_pattern = url_best_title.get(url, (title, False))
             
-            # 检查标题特征
-            if re.search(r'第.*?章|第.*?节|第.*?回|引子|序章|楔子|前言|后记', title):
-                is_chapter = True
-            elif re.match(r'^[\d一二三四五六七八九十百千万两零]+', title.strip()):
-                is_chapter = True
-                
-            # 检查 URL 路径层级相似度
+            # 排除书页/目录页本身
             parsed_cand = urlparse(url)
-            cand_parts = parsed_cand.path.strip('/').split('/')
+            cand_path = parsed_cand.path.rstrip('/')
+            toc_path = parsed_toc.path.rstrip('/')
+            if cand_path == toc_path or cand_path == toc_path.replace('/book', '') or cand_path.endswith('/' + start_path_parts[-1]):
+                continue
             
-            if len(cand_parts) >= 2 and len(start_path_parts) >= 2:
-                if cand_parts[-2] == start_path_parts[-1] or (len(cand_parts) > 2 and len(start_path_parts) > 2 and cand_parts[-2] == start_path_parts[-2]):
-                    is_chapter = True
-                    
+            is_chapter = False
+            if has_ch_pattern:
+                is_chapter = True
+            else:
+                # 检查 URL 路径最后一级是否为数字/章节文件名（且必须包含层级深度），并且标题不含垃圾词
+                cand_parts = [p for p in cand_path.split('/') if p]
+                if len(cand_parts) > len(start_path_parts) and (cand_parts[-1].isdigit() or cand_parts[-1].endswith(('.html', '.htm', '.shtml'))):
+                    if not re.search(r'新书|推介|感言|通告|书友|打赏|粉丝|群号|下载', best_title):
+                        is_chapter = True
+                        
             if is_chapter:
-                toc_chapters.append((url, title))
+                toc_chapters.append((url, best_title))
                 seen_urls.add(url)
                 
         if not toc_chapters:
@@ -1199,29 +1229,27 @@ def write_article(article, output_dir, output_format, append=False, existing_fil
         filename = os.path.basename(file_path)
     else:
         # 生成文件名
-        if article['title']:
-            base_filename = sanitize_filename(article['title'])
+        if article.get('title'):
+            raw_title = sanitize_filename(article['title'])
+            # 清理可能已有的 5 位前缀，防止重复添加前缀
+            clean_title = re.sub(r'^\d{5}_', '', raw_title)
             
             # 从标题或URL中提取章节号
-            chapter_num = extract_chapter_number(article['title'], article['url'])
+            chapter_num = extract_chapter_number(article['title'], article.get('url'))
             
             # 优先使用传入的目录/批次 index 绝对序号格式化为 5 位前缀（确保 100% 顺序无碰撞），
-            # 其次使用标题中解析出的有效章节号，最后使用时间戳。
+            # 其次使用标题中解析出的有效章节号，最后使用 00001_ 兜底。
             if index is not None:
                 prefix = f"{index:05d}_"
             elif chapter_num is not None and chapter_num < 100000:
                 prefix = f"{chapter_num:05d}_"
             else:
-                # 备用：使用时间戳生成前缀
-                timestamp = int(time.time() * 1000)
-                prefix = f"{timestamp:013d}_"
+                prefix = "00001_"
             
             # 添加前缀到文件名
-            base_filename = prefix + base_filename
+            base_filename = prefix + clean_title
         else:
-            # 如果没有标题，使用当前时间戳，确保排序正确
-            timestamp = int(time.time() * 1000)
-            base_filename = f"{timestamp:013d}_article_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            base_filename = f"00001_article_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
         # 处理文件名重复问题
         filename = base_filename
@@ -1319,36 +1347,32 @@ def main():
     
     # 1. 首先爬取当前章节
     logger.info(f"开始爬取当前章节: {current_url}")
+    current_idx = 1
     try:
         # 检查URL是否已爬取
         if current_url in crawled_urls:
             logger.info(f"URL {current_url} 已爬取，跳过")
-            # 只请求一次，复用结果
             html_content = fetch_page(current_url)
             current_article = parse_article(html_content, current_url)
         else:
-            # 获取网页内容
             html_content = fetch_page(current_url)
             logger.info("网页获取成功")
             
-            # 解析文章内容
             article = parse_article(html_content, current_url)
             logger.info(f"文章解析成功，标题: {article['title']}")
             
-            # 提取章节号
             chapter_num = extract_chapter_number(article['title'], article['url'])
+            if chapter_num is not None and chapter_num < 100000:
+                current_idx = chapter_num
+            else:
+                current_idx = prev_chapters_to_fetch + 1
             
-            # 用户明确请求的章节，只按 URL 去重，不按章节号去重
-            # （章节号去重仅用于自动翻页的 prev/next 章节，防止循环）
-            # 保存当前章节
-            current_file_path = write_article(article, args.output_dir, args.format)
+            current_file_path = write_article(article, args.output_dir, args.format, index=current_idx)
             current_chapter_title = article['title']
             actual_chapters_fetched += 1
-            # 添加到已爬取集合
             if chapter_num is not None:
                 crawled_chapters.add(chapter_num)
             crawled_urls.add(current_url)
-            # 保存当前章节信息，用于后续爬取（复用已解析结果，避免重复请求）
             current_article = article
     except Exception as e:
         logger.error(f"爬取当前章节失败: {e}")
@@ -1358,7 +1382,6 @@ def main():
     # 2. 向前爬取上一章
     if prev_chapters_to_fetch > 0:
         logger.info(f"开始向前爬取 {prev_chapters_to_fetch} 章")
-        # 从当前章节开始爬取，确保包括当前章节
         prev_url = current_url
         prev_chapters_fetched = 0
         prev_chapter_title = current_chapter_title
@@ -1368,52 +1391,50 @@ def main():
             logger.info(f"开始爬取上一章 {prev_chapters_fetched + 1}/{prev_chapters_to_fetch}: {prev_url}")
             
             try:
-                # 检查URL是否已爬取
                 if prev_url in crawled_urls:
                     logger.info(f"URL {prev_url} 已爬取，跳过")
-                    # 只请求一次，复用结果获取上一章链接
                     _skip_article = parse_article(fetch_page(prev_url), prev_url)
                     if _skip_article['prev_chapter_url']:
                         prev_url = _skip_article['prev_chapter_url']
                     else:
-                        logger.warning(f"未找到上一章链接，向前爬取结束")
+                        logger.warning("未找到上一章链接，向前爬取结束")
                         break
                     continue
                 
-                # 获取网页内容
-                html_content = fetch_page(prev_url)
-                logger.info("网页获取成功")
-                
-                # 解析文章内容
+                # 带重试地获取网页
+                html_content = None
+                for attempt in range(3):
+                    try:
+                        html_content = fetch_page(prev_url)
+                        break
+                    except Exception as fe:
+                        if attempt == 2:
+                            raise fe
+                        import time
+                        time.sleep(1.5)
+
                 article = parse_article(html_content, prev_url)
                 logger.info(f"文章解析成功，标题: {article['title']}")
                 
-                # 提取章节号
                 chapter_num = extract_chapter_number(article['title'], article['url'])
+                idx = current_idx - (prev_chapters_fetched + 1)
                 
-                # 检查是否是同一章节的不同部分
-                is_same_chapter = False
                 if prev_chapter_title == article['title'] and prev_file_path:
-                    # 同一章节的不同部分，追加内容
-                    is_same_chapter = True
                     write_article(article, args.output_dir, args.format, append=True, existing_file=prev_file_path)
                 else:
-                    # 新的章节，创建新文件
-                    prev_file_path = write_article(article, args.output_dir, args.format)
+                    prev_file_path = write_article(article, args.output_dir, args.format, index=idx)
                     prev_chapter_title = article['title']
-                    prev_chapters_fetched += 1  # 只有新章节才增加计数
-                    # 添加到已爬取集合
+                    prev_chapters_fetched += 1
                     if chapter_num is not None:
                         crawled_chapters.add(chapter_num)
                     crawled_urls.add(prev_url)
                 
-                # 如果还有章节要爬取，获取上一章链接
                 if prev_chapters_fetched < prev_chapters_to_fetch:
                     if article['prev_chapter_url']:
                         logger.info(f"获取上一章链接: {article['prev_chapter_url']}")
                         prev_url = article['prev_chapter_url']
                     else:
-                        logger.warning(f"未找到上一章链接，向前爬取结束")
+                        logger.warning("未找到上一章链接，向前爬取结束")
                         break
                 
             except Exception as e:
@@ -1421,7 +1442,7 @@ def main():
                 break
     
     # 3. 向后爬取剩余章节
-    if chapters_to_fetch > 1:  # 已经爬取了当前章节，所以只需要再爬取 chapters_to_fetch - 1 章
+    if chapters_to_fetch > 1:
         logger.info(f"开始向后爬取 {chapters_to_fetch - 1} 章")
         next_url = current_article['next_chapter_url']
         next_chapters_fetched = 0
@@ -1432,53 +1453,51 @@ def main():
             logger.info(f"开始爬取下一章 {next_chapters_fetched + 1}/{chapters_to_fetch - 1}: {next_url}")
             
             try:
-                # 检查URL是否已爬取
                 if next_url in crawled_urls:
                     logger.info(f"URL {next_url} 已爬取，跳过")
-                    # 必须获取下一章链接，否则 next_url 永远不更新会死循环
                     _skip_article = parse_article(fetch_page(next_url), next_url)
                     if _skip_article['next_chapter_url']:
                         next_url = _skip_article['next_chapter_url']
-                        next_chapters_fetched += 1  # 跳过也算推进一章
+                        next_chapters_fetched += 1
                     else:
                         logger.warning(f"已爬取章节 {next_url} 无下一章链接，向后爬取结束")
                         break
                     continue
                 
-                # 获取网页内容
-                html_content = fetch_page(next_url)
-                logger.info("网页获取成功")
-                
-                # 解析文章内容
+                # 带重试地获取网页
+                html_content = None
+                for attempt in range(3):
+                    try:
+                        html_content = fetch_page(next_url)
+                        break
+                    except Exception as fe:
+                        if attempt == 2:
+                            raise fe
+                        import time
+                        time.sleep(1.5)
+
                 article = parse_article(html_content, next_url)
                 logger.info(f"文章解析成功，标题: {article['title']}")
                 
-                # 提取章节号
                 chapter_num = extract_chapter_number(article['title'], article['url'])
+                idx = current_idx + (next_chapters_fetched + 1)
                 
-                # 检查是否是同一章节的不同部分
-                is_same_chapter = False
                 if next_chapter_title == article['title'] and next_file_path:
-                    # 同一章节的不同部分，追加内容
-                    is_same_chapter = True
                     write_article(article, args.output_dir, args.format, append=True, existing_file=next_file_path)
                 else:
-                    # 新的章节，创建新文件
-                    next_file_path = write_article(article, args.output_dir, args.format)
+                    next_file_path = write_article(article, args.output_dir, args.format, index=idx)
                     next_chapter_title = article['title']
-                    next_chapters_fetched += 1  # 只有新章节才增加计数
-                    # 添加到已爬取集合
+                    next_chapters_fetched += 1
                     if chapter_num is not None:
                         crawled_chapters.add(chapter_num)
                     crawled_urls.add(next_url)
                 
-                # 如果还有章节要爬取，获取下一章链接
                 if next_chapters_fetched < chapters_to_fetch - 1:
                     if article['next_chapter_url']:
                         logger.info(f"获取下一章链接: {article['next_chapter_url']}")
                         next_url = article['next_chapter_url']
                     else:
-                        logger.warning(f"未找到下一章链接，向后爬取结束")
+                        logger.warning("未找到下一章链接，向后爬取结束")
                         break
                 
             except Exception as e:

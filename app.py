@@ -529,10 +529,26 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
                 if cancel_event.is_set():
                     return
 
+                html_content = None
+                article_data = None
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        html_content = _ac.fetch_page(target_url)
+                        article_data = _ac.parse_article(html_content, target_url)
+                        break
+                    except Exception as ex:
+                        if attempt < max_retries - 1:
+                            logger.warning(f"并发下载章节重试 ({attempt+1}/{max_retries}) {target_url}: {ex}")
+                            import time
+                            time.sleep(1.5 * (attempt + 1))
+                        else:
+                            logger.error(f"并发下载章节多次重试均失败 {target_url}: {ex}")
+                            with completed_lock:
+                                tasks[task_id]['completed_chapters'] += 1
+                            return
+
                 try:
-                    html_content = _ac.fetch_page(target_url)
-                    article_data = _ac.parse_article(html_content, target_url)
-                    
                     if not article_data.get('is_valid', True):
                         logger.warning(f"跳过质量校验未通过的页面 ({target_url}): {article_data.get('validation_reason')}")
                         with completed_lock:
@@ -581,7 +597,9 @@ def run_crawler(task_id, url, format, output_dir, next_chapters, prev_chapters):
                             last_saved_pct = pct
                             save_tasks()
                 except Exception as ex:
-                    logger.error(f"并发下载章节失败 {target_url}: {ex}")
+                    logger.error(f"处理章节写入/分页失败 {target_url}: {ex}")
+                    with completed_lock:
+                        tasks[task_id]['completed_chapters'] += 1
 
             # 启动线程池并发下载 (并发数 10)
             with ThreadPoolExecutor(max_workers=10) as executor:

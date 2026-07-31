@@ -32,9 +32,8 @@ articles/
 !README.md
 !requirements.txt
 
-# 打包构建产物
+# 构建过程中间件（忽略 build，保留 dist 打包应用）
 build/
-dist/
 *.egg-info/
 
 # IDE 与编辑器配置
